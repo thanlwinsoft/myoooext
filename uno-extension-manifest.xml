@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- You have to add all new registry or help files here //-->
+<manifest:manifest xmlns:manifest="http://openoffice.org/2001/manifest">
+    <manifest:file-entry manifest:media-type="application/vnd.sun.star.uno-component;type=native"
+                       manifest:full-path="mybreak@UNO_SHARED_EXTENSION@"/>
+
+</manifest:manifest>
