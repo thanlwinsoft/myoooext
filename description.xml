@@ -2,7 +2,7 @@
 <description xmlns="http://openoffice.org/extensions/description/2006" xmlns:xlink="http://www.w3.org/1999/xlink">
     <version value="@graphiteooo_VERSION_MAJOR@.@graphiteooo_VERSION_MINOR@.@graphiteooo_VERSION_PATCH@"/>
     <!-- Identifier should match that used for the AddOn service -->
-    <identifier value="org.sil.graphite.GraphiteOptions"/>
+    <identifier value="org.thanlwinsoft.ooo.my"/>
     <platform value="@EXTENSION_PLATFORM@" />
     <dependencies>
         <OpenOffice.org-minimal-version xmlns:d="http://openoffice.org/extensions/description/2006" d:name="OpenOffice.org 3.2" value="3.2"/>
@@ -15,13 +15,12 @@
 	</registration>
 	-->
     <display-name>
-        <name lang="en">Graphite Font Options</name>
+        <name lang="en">Myanmar Line Breaker</name>
     </display-name>
 	<extension-description>
 		<src lang="en-US" xlink:href="l10n/description_en-US.txt"/>
 	</extension-description>
     <publisher>
-        <name lang="en" xlink:href="http://www.thanlwinsoft.org/GraphiteOOoExt/">ThanLwinSoft.org</name>
-		<name lang="en" xlink:href="http://www.sil.org/">SIL</name>
+        <name lang="en" xlink:href="http://www.thanlwinsoft.org/">ThanLwinSoft.org</name>
     </publisher>
 </description>

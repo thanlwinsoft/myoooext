@@ -1,18 +1,16 @@
 /*************************************************************************
  *
- * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
- * 
- * Copyright 2000, 2010 Oracle and/or its affiliates.
+ * Copyright 2010 ThanLwinSoft.org
+ *
+ * This file is part of the ThanLwinSoft Myanmar Extension for OpenOffice.org.
  *
  * OpenOffice.org - a multi-platform office productivity suite
  *
- * This file is part of OpenOffice.org.
- *
- * OpenOffice.org is free software: you can redistribute it and/or modify
+ * This extension is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License version 3
  * only, as published by the Free Software Foundation.
  *
- * OpenOffice.org is distributed in the hope that it will be useful,
+ * This extension is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License version 3 for more details
@@ -24,18 +22,28 @@
  * for a copy of the LGPLv3 License.
  *
  ************************************************************************/
+#include <cassert>
+#include <cstring>
+#include <cstdio>
 
 #include "sal/config.h"
 #include "cppuhelper/factory.hxx"
 #include "cppuhelper/implementationentry.hxx"
 #include "cppuhelper/implbase5.hxx"
 #include "com/sun/star/lang/XInitialization.hpp"
+#include "com/sun/star/lang/XMultiComponentFactory.hpp"
+#include "com/sun/star/lang/XMultiServiceFactory.hpp"
 #include "com/sun/star/frame/XDispatch.hpp"
 #include "com/sun/star/frame/XDispatchProvider.hpp"
 #include "com/sun/star/lang/XServiceInfo.hpp"
 #include "com/sun/star/i18n/XBreakIterator.hpp"
+//#include "com/sun/star/linguistic2/XDictionary.hpp"
+//#include "com/sun/star/linguistic2/XDictionaryEntry.hpp"
+#include "com/sun/star/linguistic2/XSpellChecker.hpp"
+#include "com/sun/star/linguistic2/XLinguServiceManager.hpp"
 #include "com/sun/star/frame/XFrame.hpp"
 
+#include "oooextDiagnostic.hxx"
 
 // component helper namespace
 namespace org { namespace thanlwinsoft { namespace ooo { namespace my { namespace myanmarbreakiterator {
@@ -114,11 +122,54 @@ private:
 
     css::uno::Reference< css::uno::XComponentContext > m_xContext;
     css::uno::Reference< css::frame::XFrame > m_xFrame;
+    css::uno::Reference< css::i18n::XBreakIterator> m_xBreakIteratorDelegate;
+    css::uno::Reference< css::linguistic2::XSpellChecker> m_xSpellChecker;
 };
 
 MyanmarBreakIterator::MyanmarBreakIterator(css::uno::Reference< css::uno::XComponentContext > const & context) :
     m_xContext(context)
-{}
+{
+    fprintf(stderr, "MyanmarBreakIterator\n");
+    assert(context.is());
+    css::uno::Reference<css::lang::XMultiComponentFactory>
+        xFactory(m_xContext->getServiceManager());
+    if (xFactory.is())
+    {
+        printServiceNames(xFactory);
+
+        ::rtl::OUString linguServiceManager =
+            ::rtl::OUString::createFromAscii("com.sun.star.linguistic2.LinguServiceManager");
+        css::uno::Reference<css::linguistic2::XLinguServiceManager> xLinguServiceManager
+            (xFactory->createInstanceWithContext(linguServiceManager, context), css::uno::UNO_QUERY);
+        if (xLinguServiceManager.is())
+        {
+            fprintf(stderr, "have LinguServiceManager\n");
+            ::rtl::OUString localeLang = ::rtl::OUString::createFromAscii("my");
+            css::lang::Locale locale(localeLang, ::rtl::OUString(), ::rtl::OUString());
+            ::rtl::OUString spellChecker = ::rtl::OUString::createFromAscii("com.sun.star.linguistic2.SpellChecker");
+            css::uno::Sequence< ::rtl::OUString> mySpellCheckers =
+                xLinguServiceManager->getConfiguredServices(spellChecker, locale);
+            printStringSequence(mySpellCheckers);
+            m_xSpellChecker.set(xLinguServiceManager->getSpellChecker());
+            if (m_xSpellChecker.is())
+            {
+                fprintf(stderr, "have spellchecker\n");
+            }
+        }
+    }
+    css::uno::Reference<css::lang::XMultiServiceFactory>
+        xServiceFactory(m_xContext->getServiceManager(), css::uno::UNO_QUERY);
+    if (xServiceFactory.is())
+    {
+        fprintf(stderr, "have multi service factory\n");
+        // printStringSequence(xServiceFactory->getAvailableServiceNames());
+        ::rtl::OUString biCtl = ::rtl::OUString::createFromAscii("com.sun.star.i18n.BreakIterator_Unicode");
+        m_xBreakIteratorDelegate.set(xFactory->createInstanceWithContext(biCtl, context),
+                                     css::uno::UNO_QUERY);
+        if (m_xBreakIteratorDelegate.is())
+            fprintf(stderr, "have default Unicode iterator\n");
+    }
+}
 
 // ::com::sun::star::lang::XInitialization:
 void SAL_CALL MyanmarBreakIterator::initialize( const css::uno::Sequence< css::uno::Any >& aArguments ) throw (css::uno::Exception, css::uno::RuntimeException)
@@ -206,22 +257,15 @@ css::uno::Sequence< ::rtl::OUString > SAL_CALL org::thanlwinsoft::ooo::my::Myanm
 // ::com::sun::star::i18n::XBreakIterator:
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::nextCharacters(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nCharacterIteratorMode, ::sal_Int32 nCount, ::sal_Int32 & nDone) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "nextCharacters" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
-    return 0;
+    return m_xBreakIteratorDelegate->nextCharacters(aText, nStartPos, aLocale,
+                                                    nCharacterIteratorMode,
+                                                    nCount, nDone);
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::previousCharacters(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nCharacterIteratorMode, ::sal_Int32 nCount, ::sal_Int32 & nDone) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "previousCharacters" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
-    return 0;
+    return m_xBreakIteratorDelegate->previousCharacters(aText, nStartPos, aLocale,
+                                                        nCharacterIteratorMode, nCount, nDone);
 }
 
 css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::nextWord(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nWordType) throw (css::uno::RuntimeException)
@@ -231,7 +275,7 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::n
     // NOTE: Default initialized polymorphic structs can cause problems because of
     // missing default initialization of primitive types of some C++ compilers or
     // different Any initialization in Java and C++ polymorphic structs.
-    return css::i18n::Boundary();
+    return m_xBreakIteratorDelegate->nextWord(aText, nStartPos, aLocale, nWordType);
 }
 
 css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::previousWord(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nWordType) throw (css::uno::RuntimeException)
@@ -241,7 +285,7 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::p
     // NOTE: Default initialized polymorphic structs can cause problems because of
     // missing default initialization of primitive types of some C++ compilers or
     // different Any initialization in Java and C++ polymorphic structs.
-    return css::i18n::Boundary();
+    return m_xBreakIteratorDelegate->previousWord(aText, nStartPos, aLocale, nWordType);
 }
 
 css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::getWordBoundary(const ::rtl::OUString & aText, ::sal_Int32 nPos, const css::lang::Locale & aLocale, ::sal_Int16 nWordType, ::sal_Bool bPreferForward) throw (css::uno::RuntimeException)
@@ -251,7 +295,7 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::g
     // NOTE: Default initialized polymorphic structs can cause problems because of
     // missing default initialization of primitive types of some C++ compilers or
     // different Any initialization in Java and C++ polymorphic structs.
-    return css::i18n::Boundary();
+    return m_xBreakIteratorDelegate->getWordBoundary(aText, nPos, aLocale, nWordType, bPreferForward);
 }
 
 ::sal_Int16 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::getWordType(const ::rtl::OUString & aText, ::sal_Int32 nPos, const css::lang::Locale & aLocale) throw (css::uno::RuntimeException)
@@ -261,7 +305,7 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::g
     // NOTE: Default initialized polymorphic structs can cause problems because of
     // missing default initialization of primitive types of some C++ compilers or
     // different Any initialization in Java and C++ polymorphic structs.
-    return 0;
+    return m_xBreakIteratorDelegate->getWordType(aText, nPos, aLocale);
 }
 
 ::sal_Bool SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::isBeginWord(const ::rtl::OUString & aText, ::sal_Int32 nPos, const css::lang::Locale & aLocale, ::sal_Int16 nWordType) throw (css::uno::RuntimeException)
@@ -271,7 +315,7 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::g
     // NOTE: Default initialized polymorphic structs can cause problems because of
     // missing default initialization of primitive types of some C++ compilers or
     // different Any initialization in Java and C++ polymorphic structs.
-    return sal_False;
+    return m_xBreakIteratorDelegate->isBeginWord(aText, nPos, aLocale, nWordType);
 }
 
 ::sal_Bool SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::isEndWord(const ::rtl::OUString & aText, ::sal_Int32 nPos, const css::lang::Locale & aLocale, ::sal_Int16 nWordType) throw (css::uno::RuntimeException)
@@ -281,127 +325,75 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::g
     // NOTE: Default initialized polymorphic structs can cause problems because of
     // missing default initialization of primitive types of some C++ compilers or
     // different Any initialization in Java and C++ polymorphic structs.
-    return sal_False;
+    return m_xBreakIteratorDelegate->isEndWord(aText, nPos, aLocale, nWordType);
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::beginOfSentence(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "beginOfSentence" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
-    return 0;
+    return m_xBreakIteratorDelegate->beginOfSentence(aText, nStartPos, aLocale);
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::endOfSentence(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "endOfSentence" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
-    return 0;
+    return m_xBreakIteratorDelegate->endOfSentence(aText, nStartPos, aLocale);
 }
 
 css::i18n::LineBreakResults SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::getLineBreak(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int32 nMinBreakPos, const css::i18n::LineBreakHyphenationOptions & aHyphOptions, const css::i18n::LineBreakUserOptions & aUserOptions) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "getLineBreak" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
-    return css::i18n::LineBreakResults();
+    css::i18n::LineBreakResults result;
+    // ignore hyphenator for Myanmar
+    //
+
+    result = m_xBreakIteratorDelegate->getLineBreak(aText, nStartPos, aLocale,
+                                                  nMinBreakPos, aHyphOptions, aUserOptions);
+    fprintf(stderr, "getLineBreak start %d min break %d break-pos %d\n",
+            nStartPos, nMinBreakPos, result.breakIndex);
+    return result;
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::beginOfScript(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, ::sal_Int16 nScriptType) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "beginOfScript" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
-    return 0;
+    return m_xBreakIteratorDelegate->beginOfScript(aText, nStartPos, nScriptType);
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::endOfScript(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, ::sal_Int16 nScriptType) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "endOfScript" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
-    return 0;
+    return m_xBreakIteratorDelegate->endOfScript(aText, nStartPos, nStartPos);
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::nextScript(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, ::sal_Int16 nScriptType) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "nextScript" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
-    return 0;
+    return m_xBreakIteratorDelegate->nextScript(aText, nStartPos, nScriptType);
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::previousScript(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, ::sal_Int16 nScriptType) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "previousScript" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
-    return 0;
+    return m_xBreakIteratorDelegate->previousScript(aText, nStartPos, nScriptType);
 }
 
 ::sal_Int16 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::getScriptType(const ::rtl::OUString & aText, ::sal_Int32 nPos) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "getScriptType" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
-    return 0;
+    return m_xBreakIteratorDelegate->getScriptType(aText, nPos);
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::beginOfCharBlock(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nCharType) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "beginOfCharBlock" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
-    return 0;
+    return m_xBreakIteratorDelegate->beginOfCharBlock(aText, nStartPos, aLocale, nCharType);
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::endOfCharBlock(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nCharType) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "endOfCharBlock" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
-    return 0;
+    return m_xBreakIteratorDelegate->endOfCharBlock(aText, nStartPos, aLocale, nCharType);
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::nextCharBlock(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nCharType) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "nextCharBlock" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
-    return 0;
+    return m_xBreakIteratorDelegate->nextCharBlock(aText, nStartPos, aLocale, nCharType);
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::previousCharBlock(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nCharType) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "previousCharBlock" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
-    return 0;
+    return m_xBreakIteratorDelegate->previousCharBlock(aText, nStartPos, aLocale, nCharType);
 }
 
 }}}} // closing anonymous implementation namespace

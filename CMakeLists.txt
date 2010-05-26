@@ -26,6 +26,22 @@ set(EXTENSION_ID org.thanlwinsoft.ooo.my)
 # add the binary tree to the search path for include files
 include_directories("${PROJECT_BINARY_DIR}")
 
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+    add_definitions(-DUNX=1 -DLINUX=1 -DCPPU_ENV=gcc3 -Wall)
+    set(BUILD_SHARED_LIBS on)
+    execute_process(COMMAND uname -m
+        OUTPUT_VARIABLE SYSTEM_MACHINE OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if (${SYSTEM_MACHINE} STREQUAL "i686")
+        set(EXTENSION_PLATFORM linux_x86)
+    elseif (${SYSTEM_MACHINE} STREQUAL "x86_64")
+        set(EXTENSION_PLATFORM linux_x86_64)
+    endif (${SYSTEM_MACHINE} STREQUAL "i686")
+elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+    set(BUILD_SHARED_LIBS on)
+    set(EXTENSION_PLATFORM windows_${CMAKE_SYSTEM_PROCESSOR})
+endif (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+
+
 # OO_SDK_URE_HOME is setup using the setsdkenv_* scripts
 find_path(OO_SDK_IDL com/sun/star/udk-modules.idl
     PATHS ENV OO_SDK_HOME /usr/lib/openoffice/basis${OOO_VERSION}/sdk
@@ -69,7 +85,10 @@ endif (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 set_directory_properties(PROPERTY COMPILE_DEFINITIONS_DEBUG GROOO_DEBUG=1)
 
 # add the library
-add_library(mybreak src/MyanmarBreakIterator.cxx)
+add_library(mybreak src/MyanmarBreak.cpp
+    src/MyanmarBreakIterator.cxx
+    src/oooextDiagnostic.cxx
+    )
 
 set_source_files_properties(src/MyanmarBreakIterator.cxx OBJECT_DEPENDS
     ${PROJECT_BINARY_DIR}/com/sun/star/lang/XInitialization.hpp)
@@ -91,10 +110,29 @@ set(UNO_SHARED_EXTENSION ${CMAKE_SHARED_LIBRARY_SUFFIX})
 configure_file(uno-extension-manifest.xml ${PROJECT_BINARY_DIR}/META-INF/manifest.xml)
 configure_file(description.xml ${PROJECT_BINARY_DIR}/description.xml)
 
-set(ZIP_FILES META-INF/manifest.xml description.xml ${UNO_SHARED_PREFIX}mybreak${UNO_SHARED_EXTENSION})
+file(GLOB L10N_FILES RELATIVE ${PROJECT_SOURCE_DIR} l10n/*.txt )
+foreach (l10nfile ${L10N_FILES} )
+    execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${PROJECT_SOURCE_DIR}/${l10nfile}
+            ${PROJECT_BINARY_DIR}/${l10nfile})
+endforeach (l10nfile ${L10NFILES})
+
+file(GLOB DICT_FILES RELATIVE ${PROJECT_SOURCE_DIR}/dict dict/*.dic dict/*.aff dict/*.xcu )
+foreach (dictFile ${DICT_FILES} )
+    execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${PROJECT_SOURCE_DIR}/dict/${dictFile}
+            ${PROJECT_BINARY_DIR}/${dictFile})
+endforeach (dictFile ${DICT_FILES})
+
+set(ZIP_FILES META-INF/manifest.xml description.xml
+    ${DICT_FILES}
+    ${L10N_FILES}
+    ${UNO_SHARED_PREFIX}mybreak${UNO_SHARED_EXTENSION})
 
 add_custom_target(mybreakextension ALL COMMAND ${ZIP} ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt ${ZIP_FILES}
     WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+
+add_dependencies(mybreakextension copy_files mybreak)
 
 add_custom_target(install
     COMMAND ${UNOPKG} add --shared ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
@@ -104,4 +142,15 @@ add_custom_target(uninstall
     COMMAND ${UNOPKG} remove --shared ${EXTENSION_ID}
     COMMENT install the extension system wide - requires admin permissions)
 
+add_custom_target(install-user
+    COMMAND ${UNOPKG} add ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
+    COMMENT install the extension for current user)
 
+add_custom_target(uninstall-user
+    COMMAND ${UNOPKG} remove ${EXTENSION_ID}
+    COMMENT uninstall the extension for current user)
+
+add_custom_target(reinstall-user
+    COMMAND ${UNOPKG} remove ${EXTENSION_ID}
+    COMMAND ${UNOPKG} add ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
+    COMMENT reinstall the extension for current user)
