@@ -26,6 +26,8 @@
 
 #include "MyanmarBreak.hxx"
 
+using namespace org::thanlwinsoft::myanmar;
+
 const int MyanmarBreak::MY_BASE = 0x1000;
 
 const int MyanmarBreak::PAIR_TABLE[MyanmarBreak::MY_SYLLABLE_NUM_PARTS]
@@ -35,7 +37,7 @@ const int MyanmarBreak::PAIR_TABLE[MyanmarBreak::MY_SYLLABLE_NUM_PARTS]
     //-  C  M  V  T 39 3A  N  S
     { 1, 3, 1, 1, 1, 1, 1, 1, 1 },//-
     { 3, 5, 1, 1, 1, 1, 1, 2, 4 },//C
-    { 3, 5, 1, 1, 0, 0, 1, 2, 4 },//M
+    { 3, 5, 1, 1, 1, 0, 1, 2, 4 },//M
     { 3, 5, 0, 1, 1, 0, 1, 2, 4 },//V
     { 3, 2, 0, 1, 1, 0, 1, 2, 4 },//T
     { 3, 1, 0, 0, 0, 0, 0, 0, 0 },//1039
@@ -247,12 +249,13 @@ MyanmarBreak::getPairStatus(const MMChar a, const MMChar b)
 
 // Is it possible to break before the character at the specified
 // index?
-bool MyanmarBreak::isBreak(::rtl::OUString & text, int32_t position)
+bool MyanmarBreak::isBreak(const ::rtl::OUString & text, int32_t position,
+                           bool includePunctuation)
 {
     if (position <= 0 || position >= text.getLength()) return true;
     MMChar prev = text[position-1];
     MMChar c =text[position];
-    MyPairStatus pair = getPairStatus(c, prev);
+    MyPairStatus pair = getPairStatus(prev, c);
     switch (pair)
     {
     case MY_PAIR_CONTEXT:
@@ -260,6 +263,8 @@ bool MyanmarBreak::isBreak(::rtl::OUString & text, int32_t position)
             if (position + 1 < text.getLength())
             {
                 MMChar next = text[position+1];
+                if (c == 0x102d)
+                    return false;
                 if (next == 0x1039 || next == 0x103A)
                     return false;
                 if (next == 0x1037 && position + 2 < text.getLength())
@@ -275,6 +280,8 @@ bool MyanmarBreak::isBreak(::rtl::OUString & text, int32_t position)
     case MY_PAIR_WORD_BREAK:
     case MY_SYLLABLE_UNKNOWN:
         return true;
+    case MY_PAIR_PUNCTUATION:
+        return !includePunctuation;
     default:
         break;
     }

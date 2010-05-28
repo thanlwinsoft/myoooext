@@ -1,11 +1,11 @@
 #
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
-# Copyright 2010 ThanLwinSoft.org & SIL International
+# Copyright 2010 ThanLwinSoft.org
 #
-# This file is part of the Graphite extension for OpenOffice.org (GraphiteOOo).
+# This file is part of the ThanLwinSoft Myanmar extension for OpenOffice.org.
 #
-# The GraphiteOOo Extension is free software: you can redistribute it and/or modify
+# The ThanLwinSoft Myanmar Extension is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License version 3
 # only, as published by the Free Software Foundation.
 #
@@ -27,7 +27,9 @@ set(EXTENSION_ID org.thanlwinsoft.ooo.my)
 include_directories("${PROJECT_BINARY_DIR}")
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-    add_definitions(-DUNX=1 -DLINUX=1 -DCPPU_ENV=gcc3 -Wall)
+    add_definitions(-DUNX=1 -DLINUX=1 -DCPPU_ENV=gcc3 -Wall 
+        -Wno-unknown-pragmas -Wparentheses -Wextra -Wendif-labels -Wshadow
+        -Wno-ctor-dtor-privacy -Wno-non-virtual-dtor -Werror)
     set(BUILD_SHARED_LIBS on)
     execute_process(COMMAND uname -m
         OUTPUT_VARIABLE SYSTEM_MACHINE OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -90,10 +92,19 @@ add_library(mybreak src/MyanmarBreak.cpp
     src/oooextDiagnostic.cxx
     )
 
+enable_testing()
+
 set_source_files_properties(src/MyanmarBreakIterator.cxx OBJECT_DEPENDS
     ${PROJECT_BINARY_DIR}/com/sun/star/lang/XInitialization.hpp)
 
-enable_testing()
+# test MyanmarBreak
+add_executable(mybreaktest src/test_MyanmarBreak.cpp src/MyanmarBreak.cpp)
+add_test(NAME test_mybreak COMMAND "$<TARGET_FILE:mybreaktest>"
+    ENVIRONMENT PATH=${OO_SDK_URE_BIN} )
+
+add_executable(mybreakitertest src/test_MyanmarBreakIterator.cxx)
+add_test(NAME test_mybreakiter COMMAND "$<TARGET_FILE:mybreakitertest>"
+    ENVIRONMENT PATH=${OO_SDK_URE_BIN} )
 
 file(RELATIVE_PATH OO_SDK_CPPUMAKER_NATIVE ${OO_SDK_URE_BIN} ${OO_SDK_CPPUMAKER} )
 
@@ -104,6 +115,9 @@ add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/com/sun/star/lang/XInitializatio
     VERBATIM)
 
 target_link_libraries(mybreak ${OO_SDK_UNO_SAL} ${OO_SDK_UNO_CPPU} ${OO_SDK_UNO_CPPUHELPER} )
+target_link_libraries(mybreaktest ${OO_SDK_UNO_SAL})
+target_link_libraries(mybreakitertest ${OO_SDK_UNO_SAL} ${OO_SDK_UNO_CPPU}
+    ${OO_SDK_UNO_CPPUHELPER} mybreak)
 
 set(UNO_SHARED_PREFIX ${CMAKE_SHARED_LIBRARY_PREFIX})
 set(UNO_SHARED_EXTENSION ${CMAKE_SHARED_LIBRARY_SUFFIX})

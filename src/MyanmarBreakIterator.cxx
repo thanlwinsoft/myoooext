@@ -27,15 +27,23 @@
 #include <cstdio>
 
 #include "sal/config.h"
+#include "rtl/string.hxx"
+#include "rtl/ustring.hxx"
 #include "cppuhelper/factory.hxx"
 #include "cppuhelper/implementationentry.hxx"
 #include "cppuhelper/implbase5.hxx"
+#include "com/sun/star/beans/PropertyValue.hpp"
+#include "com/sun/star/beans/PropertyValues.hpp"
 #include "com/sun/star/lang/XInitialization.hpp"
 #include "com/sun/star/lang/XMultiComponentFactory.hpp"
 #include "com/sun/star/lang/XMultiServiceFactory.hpp"
 #include "com/sun/star/frame/XDispatch.hpp"
 #include "com/sun/star/frame/XDispatchProvider.hpp"
 #include "com/sun/star/lang/XServiceInfo.hpp"
+#include "com/sun/star/i18n/WordType.hpp"
+#include "com/sun/star/i18n/BreakType.hpp"
+#include "com/sun/star/i18n/UnicodeType.hpp"
+#include "com/sun/star/i18n/XCharacterClassification.hpp"
 #include "com/sun/star/i18n/XBreakIterator.hpp"
 //#include "com/sun/star/linguistic2/XDictionary.hpp"
 //#include "com/sun/star/linguistic2/XDictionaryEntry.hpp"
@@ -43,6 +51,7 @@
 #include "com/sun/star/linguistic2/XLinguServiceManager.hpp"
 #include "com/sun/star/frame/XFrame.hpp"
 
+#include "MyanmarBreak.hxx"
 #include "oooextDiagnostic.hxx"
 
 // component helper namespace
@@ -63,6 +72,9 @@ css::uno::Reference< css::uno::XInterface > SAL_CALL _create( css::uno::Referenc
 namespace org { namespace thanlwinsoft { namespace ooo { namespace my {
 
 namespace css = ::com::sun::star;
+namespace otm = ::org::thanlwinsoft::myanmar;
+
+const size_t MAX_SYLLABLE_PER_WORD = 5;
 
 class MyanmarBreakIterator:
     public ::cppu::WeakImplHelper5<
@@ -124,10 +136,13 @@ private:
     css::uno::Reference< css::frame::XFrame > m_xFrame;
     css::uno::Reference< css::i18n::XBreakIterator> m_xBreakIteratorDelegate;
     css::uno::Reference< css::linguistic2::XSpellChecker> m_xSpellChecker;
+    css::uno::Reference< css::i18n::XCharacterClassification> m_xCharClassification;
+    css::lang::Locale m_locale;
 };
 
 MyanmarBreakIterator::MyanmarBreakIterator(css::uno::Reference< css::uno::XComponentContext > const & context) :
-    m_xContext(context)
+    m_xContext(context),
+    m_locale(::rtl::OUString::createFromAscii("my"), ::rtl::OUString(), ::rtl::OUString())
 {
     fprintf(stderr, "MyanmarBreakIterator\n");
     assert(context.is());
@@ -137,6 +152,12 @@ MyanmarBreakIterator::MyanmarBreakIterator(css::uno::Reference< css::uno::XCompo
     {
         printServiceNames(xFactory);
 
+        ::rtl::OUString charClassificationServiceName = ::rtl::OUString::createFromAscii(
+            "com.sun.star.i18n.CharacterClassification");
+        m_xCharClassification.set(
+            xFactory->createInstanceWithContext(charClassificationServiceName, context),
+                                                css::uno::UNO_QUERY);
+
         ::rtl::OUString linguServiceManager =
             ::rtl::OUString::createFromAscii("com.sun.star.linguistic2.LinguServiceManager");
         css::uno::Reference<css::linguistic2::XLinguServiceManager> xLinguServiceManager
@@ -144,16 +165,17 @@ MyanmarBreakIterator::MyanmarBreakIterator(css::uno::Reference< css::uno::XCompo
         if (xLinguServiceManager.is())
         {
             fprintf(stderr, "have LinguServiceManager\n");
-            ::rtl::OUString localeLang = ::rtl::OUString::createFromAscii("my");
-            css::lang::Locale locale(localeLang, ::rtl::OUString(), ::rtl::OUString());
             ::rtl::OUString spellChecker = ::rtl::OUString::createFromAscii("com.sun.star.linguistic2.SpellChecker");
             css::uno::Sequence< ::rtl::OUString> mySpellCheckers =
-                xLinguServiceManager->getConfiguredServices(spellChecker, locale);
+                xLinguServiceManager->getConfiguredServices(spellChecker, m_locale);
             printStringSequence(mySpellCheckers);
-            m_xSpellChecker.set(xLinguServiceManager->getSpellChecker());
-            if (m_xSpellChecker.is())
+            if (mySpellCheckers.getLength() > 0)
             {
-                fprintf(stderr, "have spellchecker\n");
+                m_xSpellChecker.set(xLinguServiceManager->getSpellChecker());
+                if (m_xSpellChecker.is())
+                {
+                    fprintf(stderr, "have spellchecker\n");
+                }
             }
         }
     }
@@ -163,7 +185,8 @@ MyanmarBreakIterator::MyanmarBreakIterator(css::uno::Reference< css::uno::XCompo
     {
         fprintf(stderr, "have multi service factory\n");
         // printStringSequence(xServiceFactory->getAvailableServiceNames());
-        ::rtl::OUString biCtl = ::rtl::OUString::createFromAscii("com.sun.star.i18n.BreakIterator_Unicode");
+        ::rtl::OUString biCtl =
+            ::rtl::OUString::createFromAscii("com.sun.star.i18n.BreakIterator_Unicode");
         m_xBreakIteratorDelegate.set(xFactory->createInstanceWithContext(biCtl, context),
                                      css::uno::UNO_QUERY);
         if (m_xBreakIteratorDelegate.is())
@@ -182,7 +205,7 @@ void SAL_CALL MyanmarBreakIterator::initialize( const css::uno::Sequence< css::u
 }
 
 // ::com::sun::star::frame::XDispatch:
-void SAL_CALL MyanmarBreakIterator::dispatch( const css::util::URL& aURL, const css::uno::Sequence< css::beans::PropertyValue >& aArguments ) throw(css::uno::RuntimeException)
+void SAL_CALL MyanmarBreakIterator::dispatch( const css::util::URL& aURL, const css::uno::Sequence< css::beans::PropertyValue >& /*aArguments*/ ) throw(css::uno::RuntimeException)
 {
     if ( aURL.Protocol.equalsAscii("") == 0 )
     {
@@ -194,18 +217,18 @@ void SAL_CALL MyanmarBreakIterator::dispatch( const css::util::URL& aURL, const 
     }
 }
 
-void SAL_CALL MyanmarBreakIterator::addStatusListener( const css::uno::Reference< css::frame::XStatusListener >& xControl, const css::util::URL& aURL ) throw (css::uno::RuntimeException)
+void SAL_CALL MyanmarBreakIterator::addStatusListener( const css::uno::Reference< css::frame::XStatusListener >& /*xControl*/, const css::util::URL& /*aURL*/ ) throw (css::uno::RuntimeException)
 {
-    // add your own code here
+    // TODO
 }
 
-void SAL_CALL MyanmarBreakIterator::removeStatusListener( const css::uno::Reference< css::frame::XStatusListener >& xControl, const css::util::URL& aURL ) throw (css::uno::RuntimeException)
+void SAL_CALL MyanmarBreakIterator::removeStatusListener( const css::uno::Reference< css::frame::XStatusListener >& /*xControl*/, const css::util::URL& /*aURL*/ ) throw (css::uno::RuntimeException)
 {
     // add your own code here
 }
 
 // ::com::sun::star::frame::XDispatchProvider:
-css::uno::Reference< css::frame::XDispatch > SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::queryDispatch( const css::util::URL& aURL, const ::rtl::OUString& sTargetFrameName, sal_Int32 nSearchFlags ) throw(css::uno::RuntimeException)
+css::uno::Reference< css::frame::XDispatch > SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::queryDispatch( const css::util::URL& aURL, const ::rtl::OUString& /*sTargetFrameName*/, sal_Int32 /*nSearchFlags*/ ) throw(css::uno::RuntimeException)
 {
     css::uno::Reference< css::frame::XDispatch > xRet;
     if ( !m_xFrame.is() )
@@ -270,61 +293,308 @@ css::uno::Sequence< ::rtl::OUString > SAL_CALL org::thanlwinsoft::ooo::my::Myanm
 
 css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::nextWord(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nWordType) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "nextWord" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
-    return m_xBreakIteratorDelegate->nextWord(aText, nStartPos, aLocale, nWordType);
+    css::i18n::Boundary wordBoundary;
+    // if nStartPos is the start of a word, we need to move to the next word start
+    // otherwise Ctrl+Right doesn't move the cursor
+    if (nStartPos < aText.getLength() &&
+        ((m_xCharClassification->getType(aText, nStartPos) ==
+         css::i18n::UnicodeType::SPACE_SEPARATOR) ||
+        otm::MyanmarBreak::isMyanmar(aText[nStartPos])))
+    {
+        int32_t i = nStartPos;
+        // skip over spaces to next word
+        if (nWordType == css::i18n::WordType::ANYWORD_IGNOREWHITESPACES ||
+            nWordType == css::i18n::WordType::WORD_COUNT)
+        {
+            while (i < aText.getLength() &&
+                m_xCharClassification->getType(aText, i) ==
+                css::i18n::UnicodeType::SPACE_SEPARATOR)
+                ++i;
+            if (i > nStartPos)
+                wordBoundary.startPos = i;
+        }
+        if (i == nStartPos)
+        {
+            // find first word break after start position
+            for (size_t syl = 0; syl < MAX_SYLLABLE_PER_WORD; syl++)
+            {
+                ++i;
+                while (i < aText.getLength() &&
+                    otm::MyanmarBreak::isMyanmar(aText[i]) &&
+                    !otm::MyanmarBreak::isBreak(aText, i))
+                {
+                    ++i;
+                }
+                if (syl == 0)
+                {
+                    wordBoundary.startPos = i;
+                }
+                else if (m_xSpellChecker.is())
+                {
+                    if (i == wordBoundary.startPos)
+                        break; // syllable hasn't changed
+                    // check dictionary for multisyllable word
+                    ::rtl::OUString testWord(aText.getStr() + wordBoundary.startPos,
+                                             i - wordBoundary.startPos);
+                    css::beans::PropertyValues defaultProps;
+                    if (m_xSpellChecker->isValid(testWord, m_locale, defaultProps))
+                    {
+                        wordBoundary.startPos = i;
+                    }
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
+        i = wordBoundary.startPos;
+        for (size_t syl = 0; syl < MAX_SYLLABLE_PER_WORD; syl++)
+        {
+            ++i;
+            while (i < aText.getLength() &&
+                otm::MyanmarBreak::isMyanmar(aText[i]) &&
+                !otm::MyanmarBreak::isBreak(aText, i))
+            {
+                ++i;
+            }
+            if (syl == 0)
+            {
+                wordBoundary.endPos = i;
+            }
+            else if (m_xSpellChecker.is())
+            {
+                if (i == wordBoundary.endPos)
+                    break; // syllable hasn't changed
+                // check dictionary for multisyllable word
+                ::rtl::OUString testWord(aText.getStr() + wordBoundary.startPos,
+                                         i - wordBoundary.startPos);
+                css::beans::PropertyValues defaultProps;
+                if (m_xSpellChecker->isValid(testWord, m_locale, defaultProps))
+                {
+                    wordBoundary.endPos = i;
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+        if (nWordType == css::i18n::WordType::WORD_COUNT)
+        {
+            while ((wordBoundary.endPos < aText.getLength())
+                && (m_xCharClassification->getType(aText, wordBoundary.endPos) ==
+                    css::i18n::UnicodeType::SPACE_SEPARATOR))
+            {
+                wordBoundary.endPos++;
+            }
+        }
+        rtl::OString utf8String;
+        aText.convertToString(&utf8String, RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
+        fprintf(stderr, "nextWord %d -> %d-%d type %d\n%s\n", nStartPos,
+                wordBoundary.startPos, wordBoundary.endPos,
+                nWordType, utf8String.getStr());
+        return wordBoundary;
+    }
+    wordBoundary = m_xBreakIteratorDelegate->nextWord(aText, nStartPos, aLocale, nWordType);
+    fprintf(stderr, "default nextWord %d -> %d-%d type %d\n", nStartPos,
+                wordBoundary.startPos, wordBoundary.endPos,
+                nWordType);
+    return wordBoundary;
 }
 
 css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::previousWord(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nWordType) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "previousWord" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
+    if (nStartPos > 0 &&
+        otm::MyanmarBreak::isMyanmar(aText[nStartPos-1]))
+    {
+        css::i18n::Boundary wordBoundary;
+        wordBoundary.endPos = nStartPos;
+        int32_t i = nStartPos - 1;
+        for (size_t syl = 0; syl < MAX_SYLLABLE_PER_WORD; syl++)
+        {
+            --i;
+            while (i >= 0 &&
+                otm::MyanmarBreak::isMyanmar(aText[i]) &&
+                !otm::MyanmarBreak::isBreak(aText, i+1))
+            {
+                --i;
+            }
+            if (syl == 0)
+            {
+                wordBoundary.startPos = i + 1;
+            }
+            else if (m_xSpellChecker.is())
+            {
+                if (i == wordBoundary.startPos)
+                    break; // syllable hasn't changed
+                // check dictionary for multisyllable word
+                ::rtl::OUString testWord(aText.getStr() + i + 1,
+                                         wordBoundary.endPos - i - 1);
+                css::beans::PropertyValues defaultProps;
+                if (m_xSpellChecker->isValid(testWord, m_locale, defaultProps))
+                {
+                    wordBoundary.startPos = i + 1;
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+        if (nWordType == css::i18n::WordType::WORD_COUNT)
+        {
+            while ((wordBoundary.endPos < aText.getLength())
+                && (m_xCharClassification->getType(aText, wordBoundary.endPos) ==
+                    css::i18n::UnicodeType::SPACE_SEPARATOR))
+            {
+                wordBoundary.endPos++;
+            }
+        }
+        rtl::OString utf8String;
+        aText.convertToString(&utf8String, RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
+        fprintf(stderr, "previousWord %d -> %d-%d type %d\n%s\n", nStartPos,
+                wordBoundary.startPos, wordBoundary.endPos,
+                nWordType, utf8String.getStr());
+        return wordBoundary;
+    }
     return m_xBreakIteratorDelegate->previousWord(aText, nStartPos, aLocale, nWordType);
 }
 
 css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::getWordBoundary(const ::rtl::OUString & aText, ::sal_Int32 nPos, const css::lang::Locale & aLocale, ::sal_Int16 nWordType, ::sal_Bool bPreferForward) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "getWordBoundary" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
+    css::i18n::Boundary wordBoundary;
+    if (nPos >= 0 && nPos < aText.getLength())
+    {
+        sal_Int16 cType = m_xCharClassification->getType(aText, nPos);
+        sal_Int16 prevType = (nPos > 0)? m_xCharClassification->getType(aText, nPos-1)
+            : css::i18n::UnicodeType::UNASSIGNED;
+
+        if ((nPos > 0 && otm::MyanmarBreak::isMyanmar(aText[nPos-1])) ||
+            otm::MyanmarBreak::isMyanmar(aText[nPos]))
+        {
+            if (nPos > 0 && (otm::MyanmarBreak::isBreak(aText, nPos) ||
+                cType == css::i18n::UnicodeType::SPACE_SEPARATOR ||
+                prevType == css::i18n::UnicodeType::SPACE_SEPARATOR))
+            {
+                if (bPreferForward)
+                {
+                    wordBoundary = nextWord(aText, nPos-1, aLocale, nWordType);
+                }
+                else
+                {
+                    wordBoundary = previousWord(aText, nPos, aLocale, nWordType);
+                }
+            }
+            else
+            {
+                // We need to search in both directions for a boundary, but we don't know where
+                // the previous word starts, so to be safe, search from beginning of the
+                // nearest continuous sequence of continuous Myanmar characters
+                int32_t mmStart = nPos;
+                while ((mmStart > 0) &&
+                    otm::MyanmarBreak::isMyanmar(aText[mmStart-1])) --mmStart;
+                // the first word boundary would be skipped if nextword was used
+                // so find the first word directly here
+                wordBoundary.startPos = mmStart;
+                int32_t i = mmStart;
+                for (size_t syl = 0; syl < MAX_SYLLABLE_PER_WORD; syl++)
+                {
+                    ++i;
+                    while (i < aText.getLength() &&
+                        otm::MyanmarBreak::isMyanmar(aText[i]) &&
+                        !otm::MyanmarBreak::isBreak(aText, i))
+                    {
+                        ++i;
+                    }
+                    if (syl == 0)
+                    {
+                        wordBoundary.endPos = i;
+                    }
+                    else if (m_xSpellChecker.is())
+                    {
+                        if (i == wordBoundary.endPos)
+                            break; // syllable hasn't changed
+                        // check dictionary for multisyllable word
+                        ::rtl::OUString testWord(aText.getStr() + mmStart, i - mmStart);
+                        css::beans::PropertyValues defaultProps;
+                        if (m_xSpellChecker->isValid(testWord, m_locale, defaultProps))
+                        {
+                            wordBoundary.endPos = i;
+                        }
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                while (wordBoundary.endPos < nPos)
+                {
+                    fprintf(stderr, "wb %d-%d ", wordBoundary.startPos, wordBoundary.endPos);
+                    // use start pos here, because nextWord always moves to start of
+                    // next word after startPos
+                    wordBoundary = nextWord(aText, wordBoundary.startPos, aLocale, nWordType);
+                }
+            }
+            rtl::OString utf8String;
+            aText.convertToString(&utf8String, RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
+            fprintf(stderr, "getWordBoundary %d -> %d-%d type %d\n%s\n", nPos,
+                    wordBoundary.startPos, wordBoundary.endPos, 
+                    nWordType, utf8String.getStr());
+            return wordBoundary;
+        }
+    }
     return m_xBreakIteratorDelegate->getWordBoundary(aText, nPos, aLocale, nWordType, bPreferForward);
 }
 
 ::sal_Int16 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::getWordType(const ::rtl::OUString & aText, ::sal_Int32 nPos, const css::lang::Locale & aLocale) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "getWordType" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
     return m_xBreakIteratorDelegate->getWordType(aText, nPos, aLocale);
 }
 
 ::sal_Bool SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::isBeginWord(const ::rtl::OUString & aText, ::sal_Int32 nPos, const css::lang::Locale & aLocale, ::sal_Int16 nWordType) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "isBeginWord" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
+    if (otm::MyanmarBreak::isMyanmar(aText[nPos]))
+    {
+        if (nPos == 0) return sal_True;
+        if (nPos > 0 && otm::MyanmarBreak::isMyanmar(aText[nPos-1]))
+        {
+            if (otm::MyanmarBreak::isBreak(aText, nPos))
+            {
+                // TODO Check dictionary?
+                fprintf(stderr, "Begin Myanmar BeginWord at %d\n", nPos);
+                return sal_True;
+            }
+            else
+            {
+                fprintf(stderr, "Begin Myanmar BeginWord at %d - no\n", nPos);
+                return sal_False;
+            }
+        }
+    }
     return m_xBreakIteratorDelegate->isBeginWord(aText, nPos, aLocale, nWordType);
 }
 
 ::sal_Bool SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::isEndWord(const ::rtl::OUString & aText, ::sal_Int32 nPos, const css::lang::Locale & aLocale, ::sal_Int16 nWordType) throw (css::uno::RuntimeException)
 {
-    // TODO: Exchange the default return implementation for "isEndWord" !!!
-    // Exchange the default return implementation.
-    // NOTE: Default initialized polymorphic structs can cause problems because of
-    // missing default initialization of primitive types of some C++ compilers or
-    // different Any initialization in Java and C++ polymorphic structs.
+    if (otm::MyanmarBreak::isMyanmar(aText[nPos]))
+    {
+        if (nPos == 0) return sal_True;
+        if (nPos > 0 && otm::MyanmarBreak::isMyanmar(aText[nPos-1]))
+        {
+            if (otm::MyanmarBreak::isBreak(aText, nPos))
+            {
+                // TODO Check dictionary?
+                fprintf(stderr, "Myanmar EndWord at %d\n", nPos);
+                return sal_True;
+            }
+            else
+            {
+                fprintf(stderr, "Myanmar EndWord at %d - no\n", nPos);
+                return sal_False;
+            }
+        }
+    }
     return m_xBreakIteratorDelegate->isEndWord(aText, nPos, aLocale, nWordType);
 }
 
@@ -341,13 +611,28 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::g
 css::i18n::LineBreakResults SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::getLineBreak(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int32 nMinBreakPos, const css::i18n::LineBreakHyphenationOptions & aHyphOptions, const css::i18n::LineBreakUserOptions & aUserOptions) throw (css::uno::RuntimeException)
 {
     css::i18n::LineBreakResults result;
-    // ignore hyphenator for Myanmar
-    //
+    // hyphenator isn't relevant for Myanmar
 
+    // the normalbreakiterator will be earlier than a non-space word break
     result = m_xBreakIteratorDelegate->getLineBreak(aText, nStartPos, aLocale,
                                                   nMinBreakPos, aHyphOptions, aUserOptions);
-    fprintf(stderr, "getLineBreak start %d min break %d break-pos %d\n",
-            nStartPos, nMinBreakPos, result.breakIndex);
+
+    // now try to see if there is a break nearer to the start position
+    if (result.breakIndex > -1 && otm::MyanmarBreak::isMyanmar(aText[result.breakIndex]))
+    {
+        css::i18n::Boundary b = nextWord(aText, result.breakIndex, aLocale,
+                                         css::i18n::WordType::DICTIONARY_WORD);
+        if (b.endPos <= nStartPos)
+        {
+            result.breakIndex = b.endPos;
+            result.breakType = css::i18n::BreakType::WORDBOUNDARY;
+        }
+        rtl::OString utf8String;
+        aText.convertToString(&utf8String, RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
+        fprintf(stderr, "getLineBreak start %d min break %d break-pos %d\n%s\n",
+            nStartPos, nMinBreakPos, result.breakIndex, utf8String.getStr());
+    }
+
     return result;
 }
 
@@ -358,7 +643,7 @@ css::i18n::LineBreakResults SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIte
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::endOfScript(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, ::sal_Int16 nScriptType) throw (css::uno::RuntimeException)
 {
-    return m_xBreakIteratorDelegate->endOfScript(aText, nStartPos, nStartPos);
+    return m_xBreakIteratorDelegate->endOfScript(aText, nStartPos, nScriptType);
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::nextScript(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, ::sal_Int16 nScriptType) throw (css::uno::RuntimeException)

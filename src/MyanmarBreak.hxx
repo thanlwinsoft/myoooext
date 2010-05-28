@@ -31,6 +31,8 @@
 #include "sal/types.h"
 #include "rtl/ustring.hxx"
 
+namespace org { namespace thanlwinsoft { namespace myanmar {
+
 class MyanmarBreak
 {
 public:
@@ -60,7 +62,8 @@ public:
 
     static bool isMyanmar(const MMChar c);
     static MyPairStatus getPairStatus(const MMChar a, const MMChar b);
-    static bool isBreak(::rtl::OUString & text, int32_t position);
+    static bool isBreak(const ::rtl::OUString & text, int32_t position,
+                        bool includePunctuation = false);
 private:
     static MySyllablePart getSyllablePart(const MMChar mmChar);
     static const int PAIR_TABLE[MY_SYLLABLE_NUM_PARTS][MY_SYLLABLE_NUM_PARTS];
@@ -68,5 +71,7 @@ private:
     static const int MY_BASE;
 
 };
+
+}}}
 
 #endif // MYANMARBREAK_HXX
