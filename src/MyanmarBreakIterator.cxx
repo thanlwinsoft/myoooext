@@ -53,20 +53,7 @@
 
 #include "MyanmarBreak.hxx"
 #include "oooextDiagnostic.hxx"
-
-// component helper namespace
-namespace org { namespace thanlwinsoft { namespace ooo { namespace my { namespace myanmarbreakiterator {
-
-namespace css = ::com::sun::star;
-
-// component and service helper functions:
-::rtl::OUString SAL_CALL _getImplementationName();
-css::uno::Sequence< ::rtl::OUString > SAL_CALL _getSupportedServiceNames();
-css::uno::Reference< css::uno::XInterface > SAL_CALL _create( css::uno::Reference< css::uno::XComponentContext > const & context );
-
-}}}}} // closing component helper namespace
-
-
+#include "MyanmarBreakIterator.hxx"
 
 /// anonymous implementation namespace
 namespace org { namespace thanlwinsoft { namespace ooo { namespace my {
@@ -129,6 +116,9 @@ public:
 private:
     MyanmarBreakIterator(const org::thanlwinsoft::ooo::my::MyanmarBreakIterator &); // not defined
     MyanmarBreakIterator& operator=(const org::thanlwinsoft::ooo::my::MyanmarBreakIterator &); // not defined
+
+    bool isWhiteSpace(const ::rtl::OUString & aText, ::sal_Int32 i);
+    bool isPunctuation(const ::rtl::OUString & aText, ::sal_Int32 i);
 
     // destructor is private and will be called indirectly by the release call    virtual ~org::thanlwinsoft::ooo::my::MyanmarBreakIterator() {}
 
@@ -291,32 +281,125 @@ css::uno::Sequence< ::rtl::OUString > SAL_CALL org::thanlwinsoft::ooo::my::Myanm
                                                         nCharacterIteratorMode, nCount, nDone);
 }
 
+bool org::thanlwinsoft::ooo::my::MyanmarBreakIterator::isWhiteSpace(const ::rtl::OUString & aText, ::sal_Int32 i)
+{
+    return (m_xCharClassification->getType(aText, i) == css::i18n::UnicodeType::SPACE_SEPARATOR);
+}
+
+bool org::thanlwinsoft::ooo::my::MyanmarBreakIterator::isPunctuation(const ::rtl::OUString & aText, ::sal_Int32 i)
+{
+    sal_Int16 cType = m_xCharClassification->getType(aText, i);
+    return (cType == css::i18n::UnicodeType::OTHER_PUNCTUATION ||
+            cType == css::i18n::UnicodeType::START_PUNCTUATION ||
+            cType == css::i18n::UnicodeType::END_PUNCTUATION ||
+            cType == css::i18n::UnicodeType::INITIAL_PUNCTUATION ||
+            cType == css::i18n::UnicodeType::FINAL_PUNCTUATION);
+}
+
+// nWordType determines what type of boundary is returned
+// ANY_WORD - Words, spaces, punctuation returned as separate 'words'
+// ANYWORD_IGNOREWHITESPACES - single spaces not returned, words, punctuation separate 'words'
+// DICTIONARY_WORD - same as ANYWORD_IGNOREWHITESPACES except acronymns with . are single 'words'
+// WORD_COUNT - punctuation is joined to 'words', spaces are separate 'words'
+
 css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::nextWord(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nWordType) throw (css::uno::RuntimeException)
 {
     css::i18n::Boundary wordBoundary;
+    int32_t i = (nStartPos < 0)? 0 : nStartPos;
+    int32_t punctuationStart = i;
+    wordBoundary.startPos = i;
+    // The start will be inside an existing word, need to find end of that word, before
+    // looking for start of next word
+
+
     // if nStartPos is the start of a word, we need to move to the next word start
     // otherwise Ctrl+Right doesn't move the cursor
-    if (nStartPos < aText.getLength() &&
-        ((m_xCharClassification->getType(aText, nStartPos) ==
-         css::i18n::UnicodeType::SPACE_SEPARATOR) ||
-        otm::MyanmarBreak::isMyanmar(aText[nStartPos])))
+    if (i < aText.getLength())
     {
-        int32_t i = nStartPos;
-        // skip over spaces to next word
-        if (nWordType == css::i18n::WordType::ANYWORD_IGNOREWHITESPACES ||
-            nWordType == css::i18n::WordType::WORD_COUNT)
-        {
-            while (i < aText.getLength() &&
-                m_xCharClassification->getType(aText, i) ==
-                css::i18n::UnicodeType::SPACE_SEPARATOR)
-                ++i;
-            if (i > nStartPos)
-                wordBoundary.startPos = i;
-        }
         if (i == nStartPos)
         {
-            // find first word break after start position
-            for (size_t syl = 0; syl < MAX_SYLLABLE_PER_WORD; syl++)
+            if (otm::MyanmarBreak::isMyanmar(aText[i]))
+            {
+                // find first word break after start position
+                for (size_t syl = 0; syl < MAX_SYLLABLE_PER_WORD; syl++)
+                {
+                    ++i;
+                    while (i < aText.getLength() &&
+                        otm::MyanmarBreak::isMyanmar(aText[i]) &&
+                        !otm::MyanmarBreak::isBreak(aText, i))
+                    {
+                        ++i;
+                    }
+                    if (syl == 0)
+                    {
+                        wordBoundary.startPos = i;
+                    }
+                    else if (m_xSpellChecker.is())
+                    {
+                        if (i == wordBoundary.startPos)
+                            break; // syllable hasn't changed
+                        // check dictionary for multi-syllable word
+                        ::rtl::OUString testWord(aText.getStr() + nStartPos,
+                                                i - nStartPos);
+                        css::beans::PropertyValues defaultProps;
+                        if (m_xSpellChecker->isValid(testWord, m_locale, defaultProps))
+                        {
+                            wordBoundary.startPos = i;
+                        }
+                    }
+                    else
+                    {
+                        break;
+                    }
+                    if (!otm::MyanmarBreak::isMyanmar(aText[i]))
+                        break;
+                }
+            }
+            else // the current word is not Myanmar
+            {
+                if (isWhiteSpace(aText, i))
+                {
+                    do
+                    {
+                        ++i;
+                    } while (i < aText.getLength() && isWhiteSpace(aText, i));
+                    wordBoundary.startPos = i;
+                }
+                else if (isPunctuation(aText, i))
+                {
+                    do
+                    {
+                        ++i;
+                    } while (i < aText.getLength() && isPunctuation(aText, i));
+                    wordBoundary.startPos = i;
+                }
+            }
+        }
+        i = wordBoundary.startPos;
+        // skip over spaces to next word
+        if (nWordType == css::i18n::WordType::ANYWORD_IGNOREWHITESPACES ||
+            nWordType == css::i18n::WordType::DICTIONARY_WORD)
+        {
+            while (i < aText.getLength() && isWhiteSpace(aText, i))
+            {
+                ++i;
+                wordBoundary.startPos = i;
+            }
+        }
+        else if (nWordType == css::i18n::WordType::WORD_COUNT)
+        {
+            punctuationStart = wordBoundary.startPos;
+            while (i < aText.getLength() && isPunctuation(aText, i))
+            {
+                ++i;
+                wordBoundary.startPos = i;
+            }
+        }
+        wordBoundary.endPos = wordBoundary.startPos;
+        if (otm::MyanmarBreak::isMyanmar(aText[i]))
+        {
+            for (size_t syl = 0; syl < MAX_SYLLABLE_PER_WORD &&
+                i < aText.getLength(); syl++)
             {
                 ++i;
                 while (i < aText.getLength() &&
@@ -327,19 +410,20 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::n
                 }
                 if (syl == 0)
                 {
-                    wordBoundary.startPos = i;
+                    wordBoundary.endPos = i;
                 }
                 else if (m_xSpellChecker.is())
                 {
-                    if (i == wordBoundary.startPos)
+                    if (i == wordBoundary.endPos)
                         break; // syllable hasn't changed
                     // check dictionary for multisyllable word
+                    assert(i <= aText.getLength());
                     ::rtl::OUString testWord(aText.getStr() + wordBoundary.startPos,
-                                             i - wordBoundary.startPos);
+                                            i - wordBoundary.startPos);
                     css::beans::PropertyValues defaultProps;
                     if (m_xSpellChecker->isValid(testWord, m_locale, defaultProps))
                     {
-                        wordBoundary.startPos = i;
+                        wordBoundary.endPos = i;
                     }
                 }
                 else
@@ -347,54 +431,22 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::n
                     break;
                 }
             }
-        }
-        i = wordBoundary.startPos;
-        for (size_t syl = 0; syl < MAX_SYLLABLE_PER_WORD; syl++)
-        {
-            ++i;
-            while (i < aText.getLength() &&
-                otm::MyanmarBreak::isMyanmar(aText[i]) &&
-                !otm::MyanmarBreak::isBreak(aText, i))
+            if (nWordType == css::i18n::WordType::WORD_COUNT)
             {
-                ++i;
-            }
-            if (syl == 0)
-            {
-                wordBoundary.endPos = i;
-            }
-            else if (m_xSpellChecker.is())
-            {
-                if (i == wordBoundary.endPos)
-                    break; // syllable hasn't changed
-                // check dictionary for multisyllable word
-                ::rtl::OUString testWord(aText.getStr() + wordBoundary.startPos,
-                                         i - wordBoundary.startPos);
-                css::beans::PropertyValues defaultProps;
-                if (m_xSpellChecker->isValid(testWord, m_locale, defaultProps))
+                wordBoundary.startPos = punctuationStart;
+                while ((wordBoundary.endPos < aText.getLength())
+                    && isPunctuation(aText, wordBoundary.endPos))
                 {
-                    wordBoundary.endPos = i;
+                    wordBoundary.endPos++;
                 }
             }
-            else
-            {
-                break;
-            }
+            rtl::OString utf8String;
+            aText.convertToString(&utf8String, RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
+            fprintf(stderr, "nextWord %d -> %d-%d type %d\n%s\n", nStartPos,
+                    wordBoundary.startPos, wordBoundary.endPos,
+                    nWordType, utf8String.getStr());
+            return wordBoundary;
         }
-        if (nWordType == css::i18n::WordType::WORD_COUNT)
-        {
-            while ((wordBoundary.endPos < aText.getLength())
-                && (m_xCharClassification->getType(aText, wordBoundary.endPos) ==
-                    css::i18n::UnicodeType::SPACE_SEPARATOR))
-            {
-                wordBoundary.endPos++;
-            }
-        }
-        rtl::OString utf8String;
-        aText.convertToString(&utf8String, RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
-        fprintf(stderr, "nextWord %d -> %d-%d type %d\n%s\n", nStartPos,
-                wordBoundary.startPos, wordBoundary.endPos,
-                nWordType, utf8String.getStr());
-        return wordBoundary;
     }
     wordBoundary = m_xBreakIteratorDelegate->nextWord(aText, nStartPos, aLocale, nWordType);
     fprintf(stderr, "default nextWord %d -> %d-%d type %d\n", nStartPos,
@@ -405,50 +457,113 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::n
 
 css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::previousWord(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nWordType) throw (css::uno::RuntimeException)
 {
-    if (nStartPos > 0 &&
-        otm::MyanmarBreak::isMyanmar(aText[nStartPos-1]))
+    css::i18n::Boundary wordBoundary;
+    int32_t i = nStartPos;
+    if (nStartPos < aText.getLength())
     {
-        css::i18n::Boundary wordBoundary;
-        wordBoundary.endPos = nStartPos;
-        int32_t i = nStartPos - 1;
-        for (size_t syl = 0; syl < MAX_SYLLABLE_PER_WORD; syl++)
+        if (otm::MyanmarBreak::isMyanmar(aText[i]))
+        {
+            while (!otm::MyanmarBreak::isBreak(aText, i) &&
+                i > 0 && otm::MyanmarBreak::isMyanmar(aText[i-1]))
+            {
+                --i;
+            }
+            wordBoundary.endPos = i;
+        }
+        else
+        {
+            if (isWhiteSpace(aText, i))
+            {
+                while (i > 0 && isWhiteSpace(aText, i-1))
+                    --i;
+                wordBoundary.endPos = i;
+            }
+            else if (isPunctuation(aText, i))
+            {
+                while (i > 0 && isPunctuation(aText, i-1))
+                    --i;
+                wordBoundary.endPos = i;
+            }
+            else // not Myanmar
+            {
+                while (i > 0 && !otm::MyanmarBreak::isMyanmar(aText[i-1])
+                    && (nWordType == css::i18n::WordType::WORD_COUNT ||
+                        !isPunctuation(aText, i-1))
+                    && (!isWhiteSpace(aText, i)))
+                {
+                    --i;
+                }
+                wordBoundary.endPos = i;
+            }
+        }
+    }
+    else
+    {
+        i = wordBoundary.endPos = aText.getLength();
+    }
+    int32_t punctuationEnd = wordBoundary.endPos;
+    if (nWordType == css::i18n::WordType::ANYWORD_IGNOREWHITESPACES ||
+        nWordType == css::i18n::WordType::DICTIONARY_WORD)
+    {
+        while (i > 0 && isWhiteSpace(aText, i-1))
         {
             --i;
-            while (i >= 0 &&
-                otm::MyanmarBreak::isMyanmar(aText[i]) &&
-                !otm::MyanmarBreak::isBreak(aText, i+1))
+            wordBoundary.endPos = i;
+        }
+    }
+    else if (nWordType == css::i18n::WordType::WORD_COUNT)
+    {
+        punctuationEnd = wordBoundary.endPos;
+        while (i > 0 && isPunctuation(aText, i-1))
+        {
+            --i;
+            wordBoundary.endPos = i;
+        }
+    }
+    if (i > 0 && otm::MyanmarBreak::isMyanmar(aText[i-1]) &&
+        (nWordType == css::i18n::WordType::WORD_COUNT || !isPunctuation(aText, i-1)))
+    {
+        for (size_t syl = 0; syl < MAX_SYLLABLE_PER_WORD && i > 0; syl++)
+        {
+            --i;
+            while (i > 0 &&
+                otm::MyanmarBreak::isMyanmar(aText[i-1]) &&
+                !otm::MyanmarBreak::isBreak(aText, i))
             {
                 --i;
             }
             if (syl == 0)
             {
-                wordBoundary.startPos = i + 1;
+                wordBoundary.startPos = i;
             }
             else if (m_xSpellChecker.is())
             {
                 if (i == wordBoundary.startPos)
                     break; // syllable hasn't changed
                 // check dictionary for multisyllable word
-                ::rtl::OUString testWord(aText.getStr() + i + 1,
-                                         wordBoundary.endPos - i - 1);
+                assert(i >= 0 && i <= wordBoundary.endPos);
+                ::rtl::OUString testWord(aText.getStr() + i,
+                                         wordBoundary.endPos - i);
                 css::beans::PropertyValues defaultProps;
                 if (m_xSpellChecker->isValid(testWord, m_locale, defaultProps))
                 {
-                    wordBoundary.startPos = i + 1;
+                    wordBoundary.startPos = i;
                 }
             }
             else
             {
                 break;
             }
+            if (i == 0 || !otm::MyanmarBreak::isMyanmar(aText[i-1]))
+                break;
         }
         if (nWordType == css::i18n::WordType::WORD_COUNT)
         {
-            while ((wordBoundary.endPos < aText.getLength())
-                && (m_xCharClassification->getType(aText, wordBoundary.endPos) ==
-                    css::i18n::UnicodeType::SPACE_SEPARATOR))
+            wordBoundary.endPos = punctuationEnd;
+            while ((wordBoundary.startPos > 0)
+                && (isPunctuation(aText, wordBoundary.startPos - 1)))
             {
-                wordBoundary.endPos++;
+                wordBoundary.startPos--;
             }
         }
         rtl::OString utf8String;
@@ -516,6 +631,7 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::g
                         if (i == wordBoundary.endPos)
                             break; // syllable hasn't changed
                         // check dictionary for multisyllable word
+                        assert(mmStart >= 0 && i < aText.getLength());
                         ::rtl::OUString testWord(aText.getStr() + mmStart, i - mmStart);
                         css::beans::PropertyValues defaultProps;
                         if (m_xSpellChecker->isValid(testWord, m_locale, defaultProps))
@@ -690,7 +806,7 @@ namespace org { namespace thanlwinsoft { namespace ooo { namespace my { namespac
 
 ::rtl::OUString SAL_CALL _getImplementationName() {
     return ::rtl::OUString(RTL_CONSTASCII_USTRINGPARAM(
-        "org::thanlwinsoft::ooo::my::MyanmarBreakIterator"));
+        "org.thanlwinsoft.ooo.my.MyanmarBreakIterator"));
 }
 
 css::uno::Sequence< ::rtl::OUString > SAL_CALL _getSupportedServiceNames()
