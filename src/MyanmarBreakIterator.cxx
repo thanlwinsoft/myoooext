@@ -55,6 +55,8 @@
 #include "oooextDiagnostic.hxx"
 #include "MyanmarBreakIterator.hxx"
 
+// #define MMBI_DEBUG
+
 /// anonymous implementation namespace
 namespace org { namespace thanlwinsoft { namespace ooo { namespace my {
 
@@ -134,14 +136,17 @@ MyanmarBreakIterator::MyanmarBreakIterator(css::uno::Reference< css::uno::XCompo
     m_xContext(context),
     m_locale(::rtl::OUString::createFromAscii("my"), ::rtl::OUString(), ::rtl::OUString())
 {
+#ifdef MMBI_DEBUG
     fprintf(stderr, "MyanmarBreakIterator\n");
+#endif
     assert(context.is());
     css::uno::Reference<css::lang::XMultiComponentFactory>
         xFactory(m_xContext->getServiceManager());
     if (xFactory.is())
     {
+#ifdef MMBI_DEBUG
         printServiceNames(xFactory);
-
+#endif
         ::rtl::OUString charClassificationServiceName = ::rtl::OUString::createFromAscii(
             "com.sun.star.i18n.CharacterClassification");
         m_xCharClassification.set(
@@ -154,17 +159,23 @@ MyanmarBreakIterator::MyanmarBreakIterator(css::uno::Reference< css::uno::XCompo
             (xFactory->createInstanceWithContext(linguServiceManager, context), css::uno::UNO_QUERY);
         if (xLinguServiceManager.is())
         {
+#ifdef MMBI_DEBUG
             fprintf(stderr, "have LinguServiceManager\n");
+#endif
             ::rtl::OUString spellChecker = ::rtl::OUString::createFromAscii("com.sun.star.linguistic2.SpellChecker");
             css::uno::Sequence< ::rtl::OUString> mySpellCheckers =
                 xLinguServiceManager->getConfiguredServices(spellChecker, m_locale);
+#ifdef MMBI_DEBUG
             printStringSequence(mySpellCheckers);
+#endif
             if (mySpellCheckers.getLength() > 0)
             {
                 m_xSpellChecker.set(xLinguServiceManager->getSpellChecker());
                 if (m_xSpellChecker.is())
                 {
+#ifdef MMBI_DEBUG
                     fprintf(stderr, "have spellchecker\n");
+#endif
                 }
             }
         }
@@ -173,14 +184,20 @@ MyanmarBreakIterator::MyanmarBreakIterator(css::uno::Reference< css::uno::XCompo
         xServiceFactory(m_xContext->getServiceManager(), css::uno::UNO_QUERY);
     if (xServiceFactory.is())
     {
+#ifdef MMBI_DEBUG
         fprintf(stderr, "have multi service factory\n");
+#endif
         // printStringSequence(xServiceFactory->getAvailableServiceNames());
         ::rtl::OUString biCtl =
             ::rtl::OUString::createFromAscii("com.sun.star.i18n.BreakIterator_Unicode");
         m_xBreakIteratorDelegate.set(xFactory->createInstanceWithContext(biCtl, context),
                                      css::uno::UNO_QUERY);
         if (m_xBreakIteratorDelegate.is())
+        {
+#ifdef MMBI_DEBUG
             fprintf(stderr, "have default Unicode iterator\n");
+#endif
+        }
     }
 }
 
@@ -440,18 +457,22 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::n
                     wordBoundary.endPos++;
                 }
             }
+#ifdef MMBI_DEBUG
             rtl::OString utf8String;
             aText.convertToString(&utf8String, RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
             fprintf(stderr, "nextWord %d -> %d-%d type %d\n%s\n", nStartPos,
                     wordBoundary.startPos, wordBoundary.endPos,
                     nWordType, utf8String.getStr());
+#endif
             return wordBoundary;
         }
     }
     wordBoundary = m_xBreakIteratorDelegate->nextWord(aText, nStartPos, aLocale, nWordType);
+#ifdef MMBI_DEBUG
     fprintf(stderr, "default nextWord %d -> %d-%d type %d\n", nStartPos,
                 wordBoundary.startPos, wordBoundary.endPos,
                 nWordType);
+#endif
     return wordBoundary;
 }
 
@@ -566,11 +587,13 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::p
                 wordBoundary.startPos--;
             }
         }
+#ifdef MMBI_DEBUG
         rtl::OString utf8String;
         aText.convertToString(&utf8String, RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
         fprintf(stderr, "previousWord %d -> %d-%d type %d\n%s\n", nStartPos,
                 wordBoundary.startPos, wordBoundary.endPos,
                 nWordType, utf8String.getStr());
+#endif
         return wordBoundary;
     }
     return m_xBreakIteratorDelegate->previousWord(aText, nStartPos, aLocale, nWordType);
@@ -581,82 +604,33 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::g
     css::i18n::Boundary wordBoundary;
     if (nPos >= 0 && nPos < aText.getLength())
     {
-        sal_Int16 cType = m_xCharClassification->getType(aText, nPos);
-        sal_Int16 prevType = (nPos > 0)? m_xCharClassification->getType(aText, nPos-1)
-            : css::i18n::UnicodeType::UNASSIGNED;
-
-        if ((nPos > 0 && otm::MyanmarBreak::isMyanmar(aText[nPos-1])) ||
+        if ((nPos <= 0 || otm::MyanmarBreak::isMyanmar(aText[nPos-1])) &&
             otm::MyanmarBreak::isMyanmar(aText[nPos]))
         {
-            if (nPos > 0 && (otm::MyanmarBreak::isBreak(aText, nPos) ||
-                cType == css::i18n::UnicodeType::SPACE_SEPARATOR ||
-                prevType == css::i18n::UnicodeType::SPACE_SEPARATOR))
+            // We need to search in both directions for a boundary, but we don't know where
+            // the previous word starts, so to be safe, search from beginning of the
+            // nearest continuous sequence of continuous Myanmar characters
+            int32_t mmStart = nPos;
+            if (mmStart < 0) mmStart = 0;
+            while ((mmStart > 0) && !isPunctuation(aText, mmStart-1) &&
+                otm::MyanmarBreak::isMyanmar(aText[mmStart-1])) --mmStart;
+            wordBoundary = nextWord(aText, mmStart-1, aLocale, nWordType);
+            while (wordBoundary.endPos < nPos)
             {
-                if (bPreferForward)
-                {
-                    wordBoundary = nextWord(aText, nPos-1, aLocale, nWordType);
-                }
-                else
-                {
-                    wordBoundary = previousWord(aText, nPos, aLocale, nWordType);
-                }
+#ifdef MMBI_DEBUG
+                fprintf(stderr, "wb %d-%d ", wordBoundary.startPos, wordBoundary.endPos);
+#endif
+                // use end_pos-1 here, because nextWord always moves to start of
+                // next word after specified position
+                wordBoundary = nextWord(aText, wordBoundary.endPos-1, aLocale, nWordType);
             }
-            else
-            {
-                // We need to search in both directions for a boundary, but we don't know where
-                // the previous word starts, so to be safe, search from beginning of the
-                // nearest continuous sequence of continuous Myanmar characters
-                int32_t mmStart = nPos;
-                while ((mmStart > 0) &&
-                    otm::MyanmarBreak::isMyanmar(aText[mmStart-1])) --mmStart;
-                // the first word boundary would be skipped if nextword was used
-                // so find the first word directly here
-                wordBoundary.startPos = mmStart;
-                int32_t i = mmStart;
-                for (size_t syl = 0; syl < MAX_SYLLABLE_PER_WORD; syl++)
-                {
-                    ++i;
-                    while (i < aText.getLength() &&
-                        otm::MyanmarBreak::isMyanmar(aText[i]) &&
-                        !otm::MyanmarBreak::isBreak(aText, i))
-                    {
-                        ++i;
-                    }
-                    if (syl == 0)
-                    {
-                        wordBoundary.endPos = i;
-                    }
-                    else if (m_xSpellChecker.is())
-                    {
-                        if (i == wordBoundary.endPos)
-                            break; // syllable hasn't changed
-                        // check dictionary for multisyllable word
-                        assert(mmStart >= 0 && i < aText.getLength());
-                        ::rtl::OUString testWord(aText.getStr() + mmStart, i - mmStart);
-                        css::beans::PropertyValues defaultProps;
-                        if (m_xSpellChecker->isValid(testWord, m_locale, defaultProps))
-                        {
-                            wordBoundary.endPos = i;
-                        }
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-                while (wordBoundary.endPos < nPos)
-                {
-                    fprintf(stderr, "wb %d-%d ", wordBoundary.startPos, wordBoundary.endPos);
-                    // use start pos here, because nextWord always moves to start of
-                    // next word after startPos
-                    wordBoundary = nextWord(aText, wordBoundary.startPos, aLocale, nWordType);
-                }
-            }
+#ifdef MMBI_DEBUG
             rtl::OString utf8String;
             aText.convertToString(&utf8String, RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
             fprintf(stderr, "getWordBoundary %d -> %d-%d type %d\n%s\n", nPos,
                     wordBoundary.startPos, wordBoundary.endPos, 
                     nWordType, utf8String.getStr());
+#endif
             return wordBoundary;
         }
     }
@@ -670,48 +644,62 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::g
 
 ::sal_Bool SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::isBeginWord(const ::rtl::OUString & aText, ::sal_Int32 nPos, const css::lang::Locale & aLocale, ::sal_Int16 nWordType) throw (css::uno::RuntimeException)
 {
-    if (otm::MyanmarBreak::isMyanmar(aText[nPos]))
+    sal_Bool isBegin = m_xBreakIteratorDelegate->isBeginWord(aText, nPos, aLocale, nWordType);
+
+    if (!isBegin && nPos > 0 && nPos < aText.getLength() &&
+        otm::MyanmarBreak::isMyanmar(aText[nPos-1]) &&
+        otm::MyanmarBreak::isMyanmar(aText[nPos]) &&
+        otm::MyanmarBreak::isBreak(aText, nPos))
     {
-        if (nPos == 0) return sal_True;
-        if (nPos > 0 && otm::MyanmarBreak::isMyanmar(aText[nPos-1]))
+        // the position is a syllable break, so check if it is mid-word by going back to
+        // start of Myanmar text
+        int32_t i = nPos;
+        while (i > 0 && otm::MyanmarBreak::isMyanmar(aText[i-1]) &&
+            !isPunctuation(aText, i-1)) --i;
+        // now use nextWord
+        css::i18n::Boundary b = nextWord(aText, i-1, aLocale, nWordType);
+        while (b.endPos < nPos && b.startPos != b.endPos)
         {
-            if (otm::MyanmarBreak::isBreak(aText, nPos))
-            {
-                // TODO Check dictionary?
-                fprintf(stderr, "Begin Myanmar BeginWord at %d\n", nPos);
-                return sal_True;
-            }
-            else
-            {
-                fprintf(stderr, "Begin Myanmar BeginWord at %d - no\n", nPos);
-                return sal_False;
-            }
+            b = nextWord(aText, b.endPos-1, aLocale, nWordType);
         }
+        if (b.endPos == nPos)
+            isBegin = true;
+#ifdef MMBI_DEBUG
+        fprintf(stderr, "MM BeginWord at %d = %d type %d\n", nPos, isBegin, nWordType);
+#endif
     }
-    return m_xBreakIteratorDelegate->isBeginWord(aText, nPos, aLocale, nWordType);
+#ifdef MMBI_DEBUG
+    fprintf(stderr, "BeginWord at %d = %d\n", nPos, isBegin);
+#endif
+    return isBegin;
 }
 
 ::sal_Bool SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::isEndWord(const ::rtl::OUString & aText, ::sal_Int32 nPos, const css::lang::Locale & aLocale, ::sal_Int16 nWordType) throw (css::uno::RuntimeException)
 {
-    if (otm::MyanmarBreak::isMyanmar(aText[nPos]))
+    sal_Bool isEnd = m_xBreakIteratorDelegate->isEndWord(aText, nPos, aLocale, nWordType);
+    if (!isEnd && nPos > 0 && nPos < aText.getLength() &&
+        otm::MyanmarBreak::isMyanmar(aText[nPos-1]) &&
+        otm::MyanmarBreak::isMyanmar(aText[nPos]) &&
+        otm::MyanmarBreak::isBreak(aText, nPos))
     {
-        if (nPos == 0) return sal_True;
-        if (nPos > 0 && otm::MyanmarBreak::isMyanmar(aText[nPos-1]))
+        // the position is a syllable break, so check if it is mid-word by going back to
+        // start of Myanmar text
+        int32_t i = nPos;
+        while (i > 0 && otm::MyanmarBreak::isMyanmar(aText[i-1]) &&
+            !isPunctuation(aText, i-1)) --i;
+        // now use nextWord
+        css::i18n::Boundary b = nextWord(aText, i-1, aLocale, nWordType);
+        while (b.endPos < nPos && b.startPos != b.endPos)
         {
-            if (otm::MyanmarBreak::isBreak(aText, nPos))
-            {
-                // TODO Check dictionary?
-                fprintf(stderr, "Myanmar EndWord at %d\n", nPos);
-                return sal_True;
-            }
-            else
-            {
-                fprintf(stderr, "Myanmar EndWord at %d - no\n", nPos);
-                return sal_False;
-            }
+            b = nextWord(aText, b.endPos-1, aLocale, nWordType);
         }
+        if (b.endPos == nPos)
+            isEnd = true;
     }
-    return m_xBreakIteratorDelegate->isEndWord(aText, nPos, aLocale, nWordType);
+#ifdef MMBI_DEBUG
+    fprintf(stderr, "EndWord at %d = %d\n", nPos, isEnd);
+#endif
+    return isEnd;
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::beginOfSentence(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale) throw (css::uno::RuntimeException)
@@ -727,26 +715,43 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::g
 css::i18n::LineBreakResults SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::getLineBreak(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int32 nMinBreakPos, const css::i18n::LineBreakHyphenationOptions & aHyphOptions, const css::i18n::LineBreakUserOptions & aUserOptions) throw (css::uno::RuntimeException)
 {
     css::i18n::LineBreakResults result;
+    css::i18n::LineBreakResults prevResult;
     // hyphenator isn't relevant for Myanmar
 
     // the normalbreakiterator will be earlier than a non-space word break
     result = m_xBreakIteratorDelegate->getLineBreak(aText, nStartPos, aLocale,
                                                   nMinBreakPos, aHyphOptions, aUserOptions);
-
+    prevResult = result;
     // now try to see if there is a break nearer to the start position
     if (result.breakIndex > -1 && otm::MyanmarBreak::isMyanmar(aText[result.breakIndex]))
     {
-        css::i18n::Boundary b = nextWord(aText, result.breakIndex, aLocale,
+        css::i18n::Boundary b = nextWord(aText, result.breakIndex - 1, aLocale,
                                          css::i18n::WordType::DICTIONARY_WORD);
-        if (b.endPos <= nStartPos)
+        while (b.endPos <= nStartPos)
         {
+            prevResult = result;
             result.breakIndex = b.endPos;
             result.breakType = css::i18n::BreakType::WORDBOUNDARY;
+            // use word count, since trailing punctuation should be on previous line
+            b = nextWord(aText, b.endPos - 1, aLocale, css::i18n::WordType::WORD_COUNT);
         }
+        // append trailing whitespace
+        while (result.breakIndex < aText.getLength() &&
+            isWhiteSpace(aText, result.breakIndex))
+        {
+            result.breakIndex++;
+            if (result.breakIndex > nStartPos)
+            {
+                result = prevResult;
+                break;
+            }
+        }
+#ifdef MMBI_DEBUG
         rtl::OString utf8String;
         aText.convertToString(&utf8String, RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
         fprintf(stderr, "getLineBreak start %d min break %d break-pos %d\n%s\n",
             nStartPos, nMinBreakPos, result.breakIndex, utf8String.getStr());
+#endif
     }
 
     return result;
