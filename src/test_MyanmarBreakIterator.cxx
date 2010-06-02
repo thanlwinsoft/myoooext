@@ -31,11 +31,14 @@
 #include "rtl/ustring.hxx"
 #include "cppuhelper/bootstrap.hxx"
 
+#include "com/sun/star/frame/XDesktop.hpp"
 #include "com/sun/star/i18n/WordType.hpp"
 #include "com/sun/star/i18n/Boundary.hpp"
 #include "com/sun/star/i18n/XBreakIterator.hpp"
+#include "com/sun/star/lang/DisposedException.hpp"
 #include "com/sun/star/lang/Locale.hpp"
 #include "com/sun/star/lang/XServiceInfo.hpp"
+#include "com/sun/star/lang/XComponent.hpp"
 #include "com/sun/star/uno/Reference.hxx"
 #include "com/sun/star/uno/XComponentContext.hpp"
 
@@ -319,272 +322,297 @@ int main(int argc, char ** argv)
                 argv[0]);
         return 1;
     }
+    bool status = true;
+
     css::uno::Reference<css::uno::XComponentContext> xContext = cppu::bootstrap();
     if (!xContext.is())
     {
         fprintf(stderr, "Failed to bootstrap context\n");
         return -1;
     }
-    ::rtl::OUString myIterName =
-        ::rtl::OUString::createFromAscii("com.sun.star.i18n.BreakIterator_my");
-    //css::uno::Reference<css::i18n::XBreakIterator> xMMBreak(xContext->
-    //    getServiceManager()->createInstanceWithContext(myIterName, xContext),
-    //     css::uno::UNO_QUERY);
-    css::uno::Reference<css::i18n::XBreakIterator> xMMBreak(
-        org::thanlwinsoft::ooo::my::myanmarbreakiterator::_create(xContext), css::uno::UNO_QUERY);
-    if (!xMMBreak.is())
+    // create a container block for the references
     {
-        fprintf(stderr, "Failed to create BreakIterator_my\n");
-        return -1;
-    }
-    ::rtl::OUString uniIterName =
-        ::rtl::OUString::createFromAscii("com.sun.star.i18n.BreakIterator_Unicode");
-    css::uno::Reference<css::i18n::XBreakIterator> xUnicodeBreak(xContext->
-        getServiceManager()->createInstanceWithContext(uniIterName, xContext),
-         css::uno::UNO_QUERY);
-    if (!xUnicodeBreak.is())
-    {
-        fprintf(stderr, "Failed to create BreakIterator_Unicode\n");
-        return -1;
-    }
+        ::rtl::OUString myIterName =
+            ::rtl::OUString::createFromAscii("com.sun.star.i18n.BreakIterator_my");
+        //css::uno::Reference<css::i18n::XBreakIterator> xMMBreak(xContext->
+        //    getServiceManager()->createInstanceWithContext(myIterName, xContext),
+        //     css::uno::UNO_QUERY);
+        css::uno::Reference<css::i18n::XBreakIterator> xMMBreak(
+            org::thanlwinsoft::ooo::my::myanmarbreakiterator::_create(xContext), css::uno::UNO_QUERY);
+        if (!xMMBreak.is())
+        {
+            fprintf(stderr, "Failed to create BreakIterator_my\n");
+            return -1;
+        }
+        ::rtl::OUString uniIterName =
+            ::rtl::OUString::createFromAscii("com.sun.star.i18n.BreakIterator_Unicode");
+        css::uno::Reference<css::i18n::XBreakIterator> xUnicodeBreak(xContext->
+            getServiceManager()->createInstanceWithContext(uniIterName, xContext),
+            css::uno::UNO_QUERY);
+        if (!xUnicodeBreak.is())
+        {
+            fprintf(stderr, "Failed to create BreakIterator_Unicode\n");
+            return -1;
+        }
 
-    bool status = true;
-
-    ::rtl::OString testEnglish("Find the breaks.  Second sentence is for O.O.O., but what are the “correct” answers?");
-    // Using WordType::ANY_WORD seems to give unpredictable results, because
-    // breakiterator_unicode does not include in the case statement for
-    // loadICUBreakIterator. Therefore, don't test this case for now.
-    // Words, spaces, punctuation returned as separate 'words'
-//     if (verbose)
-//     {
-//         showNextBreaks(xUnicodeBreak, testEnglish, css::i18n::WordType::ANY_WORD);
-//         showPreviousBreaks(xUnicodeBreak, testEnglish, css::i18n::WordType::ANY_WORD);
-//     }
-//     int32_t testEnglishABreaks0[][2] = {{0,4},{4,5},{5,8},{8,9},{9,15},{15,16},
-//         {16,17},{17,18},{18,24},{24,25},{25,33},{33,34},{34,36},{36,37},
-//         {37,40},{40,41},{41,46},{46,47},{47,48},{48,49},{49,52},{52,53},
-//         {53,57},{57,58},{58,61},{61,62},{62,65},{65,66},{66,67},{67,74},{74,75},
-//         {75,76},{76,83},{83,84}};
-// 
-//     status &= breakPointsCorrect(xMMBreak, testEnglish, testEnglishABreaks0,
-//                                  sizeof(testEnglishABreaks0)/sizeof(testEnglishABreaks0[0]),
-//                                  css::i18n::WordType::ANY_WORD);
-    // The next option seems to give stand alone words without punctuation, spaces skipped
-    if (verbose)
-    {
-        showNextBreaks(xUnicodeBreak, testEnglish, css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
-        showPreviousBreaks(xUnicodeBreak, testEnglish, css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
-    }
-    int32_t testEnglishABreaks1[][2] = {{0,4},{5,8},{9,15},{15,16},
-        {17,18},{18,24},{25,33},{34,36},
-        {37,40},{41,42},{42,43},{43,44},{44,45},{45,46},{46,47},{47,48},{49,52},
-        {53,57},{58,61},{62,65},{66,67},{67,74},{74,75},
-        {76,83},{83,84}};
-    status &= breakPointsCorrect(xMMBreak, testEnglish, testEnglishABreaks1,
-                                 sizeof(testEnglishABreaks1)/sizeof(testEnglishABreaks1[0]),
-                                 css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
-    // Dictionary Word gives words with fullstops appended for abbreviations
-    if (verbose)
-    {
-        showNextBreaks(xUnicodeBreak, testEnglish, css::i18n::WordType::DICTIONARY_WORD);
-        showPreviousBreaks(xUnicodeBreak, testEnglish, css::i18n::WordType::DICTIONARY_WORD);
-    }
-    int32_t testEnglishABreaks2[][2] = {{0,4},{5,8},{9,16},
-        {17,18},{18,24},{25,33},{34,36},
-        {37,40},{41,47},{47,48},{49,52},
-        {53,57},{58,61},{62,65},{66,67},{67,74},{74,75},
-        {76,83},{83,84}};
-    status &= breakPointsCorrect(xMMBreak, testEnglish, testEnglishABreaks2,
-                                 sizeof(testEnglishABreaks2)/sizeof(testEnglishABreaks2[0]),
-                                 css::i18n::WordType::DICTIONARY_WORD);
-    // punctuation is joined to 'words', spaces are separate 'words'
-    if (verbose)
-    {
-        showNextBreaks(xUnicodeBreak, testEnglish, css::i18n::WordType::WORD_COUNT);
-        showPreviousBreaks(xUnicodeBreak, testEnglish, css::i18n::WordType::WORD_COUNT);
-    }
-    int32_t testEnglishABreaks3[][2] = {{0,4},{4,5},{5,8},{8,9},{9,16},
-        {16,17},{17,18},{18,24},{24,25},{25,33},{33,34},{34,36},{36,37},
-        {37,40},{40,41},{41,48},{48,49},{49,52},{52,53},
-        {53,57},{57,58},{58,61},{61,62},{62,65},{65,66},{66,75},
-        {75,76},{76,84}};
-    status &= breakPointsCorrect(xMMBreak, testEnglish, testEnglishABreaks3,
-                                 sizeof(testEnglishABreaks3)/sizeof(testEnglishABreaks3[0]),
-                                 css::i18n::WordType::WORD_COUNT);
-
-    if (verbose)
-    {
-        //showBeginEnd(xUnicodeBreak, testEnglish, css::i18n::WordType::ANY_WORD);
-        //showBeginEnd(xMMBreak, testEnglish, css::i18n::WordType::ANY_WORD);
-        showBeginEnd(xUnicodeBreak, testEnglish, css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
-        showBeginEnd(xMMBreak, testEnglish, css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
-        showBeginEnd(xUnicodeBreak, testEnglish, css::i18n::WordType::DICTIONARY_WORD);
-        showBeginEnd(xMMBreak, testEnglish, css::i18n::WordType::DICTIONARY_WORD);
-        showBeginEnd(xUnicodeBreak, testEnglish, css::i18n::WordType::WORD_COUNT);
-        showBeginEnd(xMMBreak, testEnglish, css::i18n::WordType::WORD_COUNT);
-
-        showLineBreaks(xUnicodeBreak, testEnglish);
-        showLineBreaks(xMMBreak, testEnglish);
-    }
-    //status &= compareBreaks(xUnicodeBreak, xMMBreak, testEnglish,
-    //                        css::i18n::WordType::ANY_WORD, NULL, 0);
-    status &= compareBreaks(xUnicodeBreak, xMMBreak, testEnglish,
-                            css::i18n::WordType::ANYWORD_IGNOREWHITESPACES, NULL, 0);
-    status &= compareBreaks(xUnicodeBreak, xMMBreak, testEnglish,
-                            css::i18n::WordType::DICTIONARY_WORD, NULL, 0);
-    status &= compareBreaks(xUnicodeBreak, xMMBreak, testEnglish,
-                            css::i18n::WordType::WORD_COUNT, NULL, 0);
-
-    int32_t expectedLBEnglish[] = { 5,9,18,25,34,37,41,49,53,58,62,66,76 };
-    status &= checkLineBreaks(xMMBreak, testEnglish, ARRAY_WITH_LEN(expectedLBEnglish) );
-
-    ::rtl::OString testEnglishB(" initial space, comma");
-    if (verbose)
-    {
-        //showNextBreaks(xUnicodeBreak, testEnglishB, css::i18n::WordType::ANY_WORD);
+        ::rtl::OString testEnglish("Find the breaks.  Second sentence is for O.O.O., but what are the “correct” answers?");
+        // Using WordType::ANY_WORD seems to give unpredictable results, because
+        // breakiterator_unicode does not include in the case statement for
+        // loadICUBreakIterator. Therefore, don't test this case for now.
+        // Words, spaces, punctuation returned as separate 'words'
+    //     if (verbose)
+    //     {
+    //         showNextBreaks(xUnicodeBreak, testEnglish, css::i18n::WordType::ANY_WORD);
+    //         showPreviousBreaks(xUnicodeBreak, testEnglish, css::i18n::WordType::ANY_WORD);
+    //     }
+    //     int32_t testEnglishABreaks0[][2] = {{0,4},{4,5},{5,8},{8,9},{9,15},{15,16},
+    //         {16,17},{17,18},{18,24},{24,25},{25,33},{33,34},{34,36},{36,37},
+    //         {37,40},{40,41},{41,46},{46,47},{47,48},{48,49},{49,52},{52,53},
+    //         {53,57},{57,58},{58,61},{61,62},{62,65},{65,66},{66,67},{67,74},{74,75},
+    //         {75,76},{76,83},{83,84}};
+    // 
+    //     status &= breakPointsCorrect(xMMBreak, testEnglish, testEnglishABreaks0,
+    //                                  sizeof(testEnglishABreaks0)/sizeof(testEnglishABreaks0[0]),
+    //                                  css::i18n::WordType::ANY_WORD);
         // The next option seems to give stand alone words without punctuation, spaces skipped
-        showNextBreaks(xUnicodeBreak, testEnglishB, css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
+        if (verbose)
+        {
+            showNextBreaks(xUnicodeBreak, testEnglish, css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
+            showPreviousBreaks(xUnicodeBreak, testEnglish, css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
+        }
+        int32_t testEnglishABreaks1[][2] = {{0,4},{5,8},{9,15},{15,16},
+            {17,18},{18,24},{25,33},{34,36},
+            {37,40},{41,42},{42,43},{43,44},{44,45},{45,46},{46,47},{47,48},{49,52},
+            {53,57},{58,61},{62,65},{66,67},{67,74},{74,75},
+            {76,83},{83,84}};
+        status &= breakPointsCorrect(xMMBreak, testEnglish, testEnglishABreaks1,
+                                    sizeof(testEnglishABreaks1)/sizeof(testEnglishABreaks1[0]),
+                                    css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
         // Dictionary Word gives words with fullstops appended for abbreviations
-        showNextBreaks(xUnicodeBreak, testEnglishB, css::i18n::WordType::DICTIONARY_WORD);
+        if (verbose)
+        {
+            showNextBreaks(xUnicodeBreak, testEnglish, css::i18n::WordType::DICTIONARY_WORD);
+            showPreviousBreaks(xUnicodeBreak, testEnglish, css::i18n::WordType::DICTIONARY_WORD);
+        }
+        int32_t testEnglishABreaks2[][2] = {{0,4},{5,8},{9,16},
+            {17,18},{18,24},{25,33},{34,36},
+            {37,40},{41,47},{47,48},{49,52},
+            {53,57},{58,61},{62,65},{66,67},{67,74},{74,75},
+            {76,83},{83,84}};
+        status &= breakPointsCorrect(xMMBreak, testEnglish, testEnglishABreaks2,
+                                    sizeof(testEnglishABreaks2)/sizeof(testEnglishABreaks2[0]),
+                                    css::i18n::WordType::DICTIONARY_WORD);
         // punctuation is joined to 'words', spaces are separate 'words'
-        showNextBreaks(xUnicodeBreak, testEnglishB, css::i18n::WordType::WORD_COUNT);
+        if (verbose)
+        {
+            showNextBreaks(xUnicodeBreak, testEnglish, css::i18n::WordType::WORD_COUNT);
+            showPreviousBreaks(xUnicodeBreak, testEnglish, css::i18n::WordType::WORD_COUNT);
+        }
+        int32_t testEnglishABreaks3[][2] = {{0,4},{4,5},{5,8},{8,9},{9,16},
+            {16,17},{17,18},{18,24},{24,25},{25,33},{33,34},{34,36},{36,37},
+            {37,40},{40,41},{41,48},{48,49},{49,52},{52,53},
+            {53,57},{57,58},{58,61},{61,62},{62,65},{65,66},{66,75},
+            {75,76},{76,84}};
+        status &= breakPointsCorrect(xMMBreak, testEnglish, testEnglishABreaks3,
+                                    sizeof(testEnglishABreaks3)/sizeof(testEnglishABreaks3[0]),
+                                    css::i18n::WordType::WORD_COUNT);
+
+        if (verbose)
+        {
+            //showBeginEnd(xUnicodeBreak, testEnglish, css::i18n::WordType::ANY_WORD);
+            //showBeginEnd(xMMBreak, testEnglish, css::i18n::WordType::ANY_WORD);
+            showBeginEnd(xUnicodeBreak, testEnglish, css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
+            showBeginEnd(xMMBreak, testEnglish, css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
+            showBeginEnd(xUnicodeBreak, testEnglish, css::i18n::WordType::DICTIONARY_WORD);
+            showBeginEnd(xMMBreak, testEnglish, css::i18n::WordType::DICTIONARY_WORD);
+            showBeginEnd(xUnicodeBreak, testEnglish, css::i18n::WordType::WORD_COUNT);
+            showBeginEnd(xMMBreak, testEnglish, css::i18n::WordType::WORD_COUNT);
+
+            showLineBreaks(xUnicodeBreak, testEnglish);
+            showLineBreaks(xMMBreak, testEnglish);
+        }
+        //status &= compareBreaks(xUnicodeBreak, xMMBreak, testEnglish,
+        //                        css::i18n::WordType::ANY_WORD, NULL, 0);
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testEnglish,
+                                css::i18n::WordType::ANYWORD_IGNOREWHITESPACES, NULL, 0);
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testEnglish,
+                                css::i18n::WordType::DICTIONARY_WORD, NULL, 0);
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testEnglish,
+                                css::i18n::WordType::WORD_COUNT, NULL, 0);
+
+        int32_t expectedLBEnglish[] = { 5,9,18,25,34,37,41,49,53,58,62,66,76 };
+        status &= checkLineBreaks(xMMBreak, testEnglish, ARRAY_WITH_LEN(expectedLBEnglish) );
+
+        ::rtl::OString testEnglishB(" initial space, comma");
+        if (verbose)
+        {
+            //showNextBreaks(xUnicodeBreak, testEnglishB, css::i18n::WordType::ANY_WORD);
+            // The next option seems to give stand alone words without punctuation, spaces skipped
+            showNextBreaks(xUnicodeBreak, testEnglishB, css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
+            // Dictionary Word gives words with fullstops appended for abbreviations
+            showNextBreaks(xUnicodeBreak, testEnglishB, css::i18n::WordType::DICTIONARY_WORD);
+            // punctuation is joined to 'words', spaces are separate 'words'
+            showNextBreaks(xUnicodeBreak, testEnglishB, css::i18n::WordType::WORD_COUNT);
+        }
+        //int32_t testEnglishBBreaks0[][2] = {{0,1},{1,8},{8,9},{9,14},{14,15},{15,16},{16,21}};
+        //status &= breakPointsCorrect(xMMBreak, testEnglishB, testEnglishBBreaks0,
+        //                             sizeof(testEnglishBBreaks0)/sizeof(testEnglishBBreaks0[0]),
+        //                             css::i18n::WordType::ANY_WORD);
+        int32_t testEnglishBBreaks1[][2] = {{1,8},{9,14},{14,15},{16,21}};
+        status &= breakPointsCorrect(xMMBreak, testEnglishB, testEnglishBBreaks1,
+                                    sizeof(testEnglishBBreaks1)/sizeof(testEnglishBBreaks1[0]),
+                                    css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
+        status &= breakPointsCorrect(xMMBreak, testEnglishB, testEnglishBBreaks1,
+                                    sizeof(testEnglishBBreaks1)/sizeof(testEnglishBBreaks1[0]),
+                                    css::i18n::WordType::DICTIONARY_WORD);
+        int32_t testEnglishBBreaks3[][2] = {{0,1},{1,8},{8,9},{9,15},{15,16},{16,21}};
+        status &= breakPointsCorrect(xMMBreak, testEnglishB, testEnglishBBreaks3,
+                                    sizeof(testEnglishBBreaks3)/sizeof(testEnglishBBreaks3[0]),
+                                    css::i18n::WordType::WORD_COUNT);
+
+        //status &= compareBreaks(xUnicodeBreak, xMMBreak, testEnglishB,
+        //                        css::i18n::WordType::ANY_WORD, NULL, 0);
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testEnglishB,
+                                css::i18n::WordType::ANYWORD_IGNOREWHITESPACES, NULL, 0);
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testEnglishB,
+                                css::i18n::WordType::DICTIONARY_WORD, NULL, 0);
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testEnglishB,
+                                css::i18n::WordType::WORD_COUNT, NULL, 0);
+
+        ::rtl::OString testA("ကောင်းလား။");
+        if (verbose)
+        {
+            showNextBreaks(xUnicodeBreak, testA, css::i18n::WordType::WORD_COUNT);
+            showNextBreaks(xMMBreak, testA, css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
+            showNextBreaks(xMMBreak, testA, css::i18n::WordType::DICTIONARY_WORD);
+            showLineBreaks(xUnicodeBreak, testA);
+            showLineBreaks(xMMBreak, testA);
+        }
+
+
+        int32_t testABreaks0[][2] = {{0,6},{6,9},{9,10}};
+        //status &= breakPointsCorrect(xMMBreak, testA, testABreaks0,
+        //                             sizeof(testABreaks0)/sizeof(testABreaks0[0]),
+        //                             css::i18n::WordType::ANY_WORD);
+
+        status &= breakPointsCorrect(xMMBreak, testA, testABreaks0,
+                                    sizeof(testABreaks0)/sizeof(testABreaks0[0]),
+                                    css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
+        status &= breakPointsCorrect(xMMBreak, testA, testABreaks0,
+                                    sizeof(testABreaks0)/sizeof(testABreaks0[0]),
+                                    css::i18n::WordType::DICTIONARY_WORD);
+        int32_t testABreaks3[][2] = {{0,6},{6,10}};
+        status &= breakPointsCorrect(xMMBreak, testA, testABreaks3,
+                                    sizeof(testABreaks3)/sizeof(testABreaks3[0]),
+                                    css::i18n::WordType::WORD_COUNT);
+
+        int32_t testAExtraBreaks[] = {6,9};
+        //status &= compareBreaks(xUnicodeBreak, xMMBreak, testA,
+        //                        css::i18n::WordType::ANY_WORD, testAExtraBreaks,
+        //                        sizeof(testAExtraBreaks)/sizeof(testAExtraBreaks[0]));
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testA,
+                                css::i18n::WordType::ANYWORD_IGNOREWHITESPACES, testAExtraBreaks,
+                                sizeof(testAExtraBreaks)/sizeof(testAExtraBreaks[0]));
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testA,
+                                css::i18n::WordType::DICTIONARY_WORD, testAExtraBreaks,
+                                sizeof(testAExtraBreaks)/sizeof(testAExtraBreaks[0]));
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testA,
+                                css::i18n::WordType::WORD_COUNT, testAExtraBreaks,
+                                sizeof(testAExtraBreaks)/sizeof(testAExtraBreaks[0]));
+
+        ::rtl::OString testB("နေရာ အလွတ်ရှိရင် ဘာ “စကားလုံး” တွေမလဲ။ ");
+        // in this test mode the dictionary doesn't seem to work properly
+        //int32_t testBBreaks0[][2] = {{0,4},{4,5},{5,10},{10,13},{13,16},{16,17},{17,19},{19,20},{20,21},{21,29},{29,30},{30,31},{31,34},{34,35},{35,37},{37,38},{38,39}};
+        //status &= breakPointsCorrect(xMMBreak, testB, testBBreaks0,
+        //                             sizeof(testBBreaks0)/sizeof(testBBreaks0[0]),
+        //                             css::i18n::WordType::ANY_WORD);
+        int32_t testBBreaks1[][2] = {{0,4},{5,10},{10,13},{13,16},{17,19},{20,21},{21,29},{29,30},{31,34},{34,35},{35,37},{37,38}};
+        status &= breakPointsCorrect(xMMBreak, testB, testBBreaks1,
+                                    sizeof(testBBreaks1)/sizeof(testBBreaks1[0]),
+                                    css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
+        status &= breakPointsCorrect(xMMBreak, testB, testBBreaks1,
+                                    sizeof(testBBreaks1)/sizeof(testBBreaks1[0]),
+                                    css::i18n::WordType::DICTIONARY_WORD);
+        int32_t testBBreaks3[][2] = {{0,4},{4,5},{5,10},{10,13},{13,16},{16,17},{17,19},{19,20},{20,30},{30,31},{31,34},{34,35},{35,38},{38,39}};
+        status &= breakPointsCorrect(xMMBreak, testB, testBBreaks3,
+                                    sizeof(testBBreaks3)/sizeof(testBBreaks3[0]),
+                                    css::i18n::WordType::WORD_COUNT);
+
+        int32_t testBExtraBreaks [] = { 10,13,34,35,37 };
+        //status &= compareBreaks(xUnicodeBreak, xMMBreak, testB,
+        //                        css::i18n::WordType::ANY_WORD, testBExtraBreaks,
+        //                        sizeof(testBExtraBreaks)/sizeof(testBExtraBreaks[0]));
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testB,
+                                css::i18n::WordType::ANYWORD_IGNOREWHITESPACES, testBExtraBreaks,
+                                sizeof(testBExtraBreaks)/sizeof(testBExtraBreaks[0]));
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testB,
+                                css::i18n::WordType::DICTIONARY_WORD, testBExtraBreaks,
+                                sizeof(testBExtraBreaks)/sizeof(testBExtraBreaks[0]));
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testB,
+                                css::i18n::WordType::WORD_COUNT, testBExtraBreaks,
+                                sizeof(testBExtraBreaks)/sizeof(testBExtraBreaks[0]));
+
+        if (verbose)
+        {
+            showLineBreaks(xUnicodeBreak, testB);
+            showLineBreaks(xMMBreak, testB);
+        }
+
+        ::rtl::OString testC(" အရှေ့မှာ");
+        int32_t testCBreaks0[][2] = {{0,1},{1,6},{6,9}};
+        //status &= breakPointsCorrect(xMMBreak, testC, testCBreaks0,
+        //                             sizeof(testCBreaks0)/sizeof(testCBreaks0[0]),
+        //                             css::i18n::WordType::ANY_WORD);
+        int32_t testCBreaks1[][2] = {{1,6},{6,9}};
+        status &= breakPointsCorrect(xMMBreak, testC, testCBreaks1,
+                                    sizeof(testCBreaks1)/sizeof(testCBreaks1[0]),
+                                    css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
+        status &= breakPointsCorrect(xMMBreak, testC, testCBreaks1,
+                                    sizeof(testCBreaks1)/sizeof(testCBreaks1[0]),
+                                    css::i18n::WordType::DICTIONARY_WORD);
+        status &= breakPointsCorrect(xMMBreak, testC, testCBreaks0,
+                                    sizeof(testCBreaks0)/sizeof(testCBreaks0[0]),
+                                    css::i18n::WordType::WORD_COUNT);
+
+        int32_t testCExtraBreaks [] = { 6 };
+        //status &= compareBreaks(xUnicodeBreak, xMMBreak, testC,
+        //                        css::i18n::WordType::ANY_WORD, testCExtraBreaks,
+        //                        sizeof(testCExtraBreaks)/sizeof(testCExtraBreaks[0]));
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testC,
+                                css::i18n::WordType::ANYWORD_IGNOREWHITESPACES, testCExtraBreaks,
+                                sizeof(testCExtraBreaks)/sizeof(testCExtraBreaks[0]));
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testC,
+                                css::i18n::WordType::DICTIONARY_WORD, testCExtraBreaks,
+                                sizeof(testCExtraBreaks)/sizeof(testCExtraBreaks[0]));
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testC,
+                                css::i18n::WordType::WORD_COUNT, testCExtraBreaks,
+                                sizeof(testCExtraBreaks)/sizeof(testCExtraBreaks[0]));
+        if (!status)
+            fprintf(stderr, "\n*** %s test failed! ***\n\n", argv[0]);
+
     }
-    //int32_t testEnglishBBreaks0[][2] = {{0,1},{1,8},{8,9},{9,14},{14,15},{15,16},{16,21}};
-    //status &= breakPointsCorrect(xMMBreak, testEnglishB, testEnglishBBreaks0,
-    //                             sizeof(testEnglishBBreaks0)/sizeof(testEnglishBBreaks0[0]),
-    //                             css::i18n::WordType::ANY_WORD);
-    int32_t testEnglishBBreaks1[][2] = {{1,8},{9,14},{14,15},{16,21}};
-    status &= breakPointsCorrect(xMMBreak, testEnglishB, testEnglishBBreaks1,
-                                 sizeof(testEnglishBBreaks1)/sizeof(testEnglishBBreaks1[0]),
-                                 css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
-    status &= breakPointsCorrect(xMMBreak, testEnglishB, testEnglishBBreaks1,
-                                 sizeof(testEnglishBBreaks1)/sizeof(testEnglishBBreaks1[0]),
-                                 css::i18n::WordType::DICTIONARY_WORD);
-    int32_t testEnglishBBreaks3[][2] = {{0,1},{1,8},{8,9},{9,15},{15,16},{16,21}};
-    status &= breakPointsCorrect(xMMBreak, testEnglishB, testEnglishBBreaks3,
-                                 sizeof(testEnglishBBreaks3)/sizeof(testEnglishBBreaks3[0]),
-                                 css::i18n::WordType::WORD_COUNT);
-
-    //status &= compareBreaks(xUnicodeBreak, xMMBreak, testEnglishB,
-    //                        css::i18n::WordType::ANY_WORD, NULL, 0);
-    status &= compareBreaks(xUnicodeBreak, xMMBreak, testEnglishB,
-                            css::i18n::WordType::ANYWORD_IGNOREWHITESPACES, NULL, 0);
-    status &= compareBreaks(xUnicodeBreak, xMMBreak, testEnglishB,
-                            css::i18n::WordType::DICTIONARY_WORD, NULL, 0);
-    status &= compareBreaks(xUnicodeBreak, xMMBreak, testEnglishB,
-                            css::i18n::WordType::WORD_COUNT, NULL, 0);
-
-    ::rtl::OString testA("ကောင်းလား။");
-    if (verbose)
+    ::rtl::OUString desktopService =
+            ::rtl::OUString::createFromAscii("com.sun.star.frame.Desktop");
+    css::uno::Reference<css::frame::XDesktop> xDesktop(xContext->
+        getServiceManager()->createInstanceWithContext(desktopService, xContext),
+                                                       css::uno::UNO_QUERY);
+    if (xDesktop.is())
     {
-        showNextBreaks(xUnicodeBreak, testA, css::i18n::WordType::WORD_COUNT);
-        showNextBreaks(xMMBreak, testA, css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
-        showNextBreaks(xMMBreak, testA, css::i18n::WordType::DICTIONARY_WORD);
-        showLineBreaks(xUnicodeBreak, testA);
-        showLineBreaks(xMMBreak, testA);
+        try
+        {
+            bool terminate = xDesktop->terminate();
+            if (!terminate)
+            {
+                printf("Desktop terminate vetoed\n");
+            }
+        }
+        catch (css::lang::DisposedException e)
+        {
+            ::rtl::OString msg;
+            e.Message.convertToString(&msg, RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
+            printf("Caught DisposedException %s\n", msg.getStr());
+        }
     }
 
-
-    int32_t testABreaks0[][2] = {{0,6},{6,9},{9,10}};
-    //status &= breakPointsCorrect(xMMBreak, testA, testABreaks0,
-    //                             sizeof(testABreaks0)/sizeof(testABreaks0[0]),
-    //                             css::i18n::WordType::ANY_WORD);
-
-    status &= breakPointsCorrect(xMMBreak, testA, testABreaks0,
-                                 sizeof(testABreaks0)/sizeof(testABreaks0[0]),
-                                 css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
-    status &= breakPointsCorrect(xMMBreak, testA, testABreaks0,
-                                 sizeof(testABreaks0)/sizeof(testABreaks0[0]),
-                                 css::i18n::WordType::DICTIONARY_WORD);
-    int32_t testABreaks3[][2] = {{0,6},{6,10}};
-    status &= breakPointsCorrect(xMMBreak, testA, testABreaks3,
-                                 sizeof(testABreaks3)/sizeof(testABreaks3[0]),
-                                 css::i18n::WordType::WORD_COUNT);
-
-    int32_t testAExtraBreaks[] = {6,9};
-    //status &= compareBreaks(xUnicodeBreak, xMMBreak, testA,
-    //                        css::i18n::WordType::ANY_WORD, testAExtraBreaks,
-    //                        sizeof(testAExtraBreaks)/sizeof(testAExtraBreaks[0]));
-    status &= compareBreaks(xUnicodeBreak, xMMBreak, testA,
-                            css::i18n::WordType::ANYWORD_IGNOREWHITESPACES, testAExtraBreaks,
-                            sizeof(testAExtraBreaks)/sizeof(testAExtraBreaks[0]));
-    status &= compareBreaks(xUnicodeBreak, xMMBreak, testA,
-                            css::i18n::WordType::DICTIONARY_WORD, testAExtraBreaks,
-                            sizeof(testAExtraBreaks)/sizeof(testAExtraBreaks[0]));
-    status &= compareBreaks(xUnicodeBreak, xMMBreak, testA,
-                            css::i18n::WordType::WORD_COUNT, testAExtraBreaks,
-                            sizeof(testAExtraBreaks)/sizeof(testAExtraBreaks[0]));
-
-    ::rtl::OString testB("နေရာ အလွတ်ရှိရင် ဘာ “စကားလုံး” တွေမလဲ။ ");
-    // in this test mode the dictionary doesn't seem to work properly
-    //int32_t testBBreaks0[][2] = {{0,4},{4,5},{5,10},{10,13},{13,16},{16,17},{17,19},{19,20},{20,21},{21,29},{29,30},{30,31},{31,34},{34,35},{35,37},{37,38},{38,39}};
-    //status &= breakPointsCorrect(xMMBreak, testB, testBBreaks0,
-    //                             sizeof(testBBreaks0)/sizeof(testBBreaks0[0]),
-    //                             css::i18n::WordType::ANY_WORD);
-    int32_t testBBreaks1[][2] = {{0,4},{5,10},{10,13},{13,16},{17,19},{20,21},{21,29},{29,30},{31,34},{34,35},{35,37},{37,38}};
-    status &= breakPointsCorrect(xMMBreak, testB, testBBreaks1,
-                                 sizeof(testBBreaks1)/sizeof(testBBreaks1[0]),
-                                 css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
-    status &= breakPointsCorrect(xMMBreak, testB, testBBreaks1,
-                                 sizeof(testBBreaks1)/sizeof(testBBreaks1[0]),
-                                 css::i18n::WordType::DICTIONARY_WORD);
-    int32_t testBBreaks3[][2] = {{0,4},{4,5},{5,10},{10,13},{13,16},{16,17},{17,19},{19,20},{20,30},{30,31},{31,34},{34,35},{35,38},{38,39}};
-    status &= breakPointsCorrect(xMMBreak, testB, testBBreaks3,
-                                 sizeof(testBBreaks3)/sizeof(testBBreaks3[0]),
-                                 css::i18n::WordType::WORD_COUNT);
-
-    int32_t testBExtraBreaks [] = { 10,13,34,35,37 };
-    //status &= compareBreaks(xUnicodeBreak, xMMBreak, testB,
-    //                        css::i18n::WordType::ANY_WORD, testBExtraBreaks,
-    //                        sizeof(testBExtraBreaks)/sizeof(testBExtraBreaks[0]));
-    status &= compareBreaks(xUnicodeBreak, xMMBreak, testB,
-                            css::i18n::WordType::ANYWORD_IGNOREWHITESPACES, testBExtraBreaks,
-                            sizeof(testBExtraBreaks)/sizeof(testBExtraBreaks[0]));
-    status &= compareBreaks(xUnicodeBreak, xMMBreak, testB,
-                            css::i18n::WordType::DICTIONARY_WORD, testBExtraBreaks,
-                            sizeof(testBExtraBreaks)/sizeof(testBExtraBreaks[0]));
-    status &= compareBreaks(xUnicodeBreak, xMMBreak, testB,
-                            css::i18n::WordType::WORD_COUNT, testBExtraBreaks,
-                            sizeof(testBExtraBreaks)/sizeof(testBExtraBreaks[0]));
-
-    if (verbose)
-    {
-        showLineBreaks(xUnicodeBreak, testB);
-        showLineBreaks(xMMBreak, testB);
-    }
-
-    ::rtl::OString testC(" အရှေ့မှာ");
-    int32_t testCBreaks0[][2] = {{0,1},{1,6},{6,9}};
-    //status &= breakPointsCorrect(xMMBreak, testC, testCBreaks0,
-    //                             sizeof(testCBreaks0)/sizeof(testCBreaks0[0]),
-    //                             css::i18n::WordType::ANY_WORD);
-    int32_t testCBreaks1[][2] = {{1,6},{6,9}};
-    status &= breakPointsCorrect(xMMBreak, testC, testCBreaks1,
-                                 sizeof(testCBreaks1)/sizeof(testCBreaks1[0]),
-                                 css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
-    status &= breakPointsCorrect(xMMBreak, testC, testCBreaks1,
-                                 sizeof(testCBreaks1)/sizeof(testCBreaks1[0]),
-                                 css::i18n::WordType::DICTIONARY_WORD);
-    status &= breakPointsCorrect(xMMBreak, testC, testCBreaks0,
-                                 sizeof(testCBreaks0)/sizeof(testCBreaks0[0]),
-                                 css::i18n::WordType::WORD_COUNT);
-
-    int32_t testCExtraBreaks [] = { 6 };
-    //status &= compareBreaks(xUnicodeBreak, xMMBreak, testC,
-    //                        css::i18n::WordType::ANY_WORD, testCExtraBreaks,
-    //                        sizeof(testCExtraBreaks)/sizeof(testCExtraBreaks[0]));
-    status &= compareBreaks(xUnicodeBreak, xMMBreak, testC,
-                            css::i18n::WordType::ANYWORD_IGNOREWHITESPACES, testCExtraBreaks,
-                            sizeof(testCExtraBreaks)/sizeof(testCExtraBreaks[0]));
-    status &= compareBreaks(xUnicodeBreak, xMMBreak, testC,
-                            css::i18n::WordType::DICTIONARY_WORD, testCExtraBreaks,
-                            sizeof(testCExtraBreaks)/sizeof(testCExtraBreaks[0]));
-    status &= compareBreaks(xUnicodeBreak, xMMBreak, testC,
-                            css::i18n::WordType::WORD_COUNT, testCExtraBreaks,
-                            sizeof(testCExtraBreaks)/sizeof(testCExtraBreaks[0]));
-    if (!status)
-        fprintf(stderr, "\n*** %s test failed! ***\n\n", argv[0]);
-
-    xContext->release();
     return !status;
 }
