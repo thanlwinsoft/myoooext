@@ -889,21 +889,28 @@ static ::cppu::ImplementationEntry const entries[] = {
     { 0, 0, 0, 0, 0, 0 }
 };
 
-extern "C" void SAL_CALL component_getImplementationEnvironment(
+extern "C" {
+
+SAL_DLLPUBLIC_EXPORT
+void SAL_CALL component_getImplementationEnvironment(
     const char ** envTypeName, uno_Environment **)
 {
     *envTypeName = CPPU_CURRENT_LANGUAGE_BINDING_NAME;
 }
 
-extern "C" void * SAL_CALL component_getFactory(
+SAL_DLLPUBLIC_EXPORT
+void * SAL_CALL component_getFactory(
     const char * implName, void * serviceManager, void * registryKey)
 {
     return ::cppu::component_getFactoryHelper(
         implName, serviceManager, registryKey, entries);
 }
 
-extern "C" sal_Bool SAL_CALL component_writeInfo(
+SAL_DLLPUBLIC_EXPORT
+sal_Bool SAL_CALL component_writeInfo(
     void * serviceManager, void * registryKey)
 {
     return ::cppu::component_writeInfoHelper(serviceManager, registryKey, entries);
 }
+
+} // extern "C"

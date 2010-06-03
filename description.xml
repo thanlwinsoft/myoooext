@@ -1,6 +1,6 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <description xmlns="http://openoffice.org/extensions/description/2006" xmlns:xlink="http://www.w3.org/1999/xlink">
-    <version value="@graphiteooo_VERSION_MAJOR@.@graphiteooo_VERSION_MINOR@.@graphiteooo_VERSION_PATCH@"/>
+    <version value="@EXT_VERSION_MAJOR@.@EXT_VERSION_MINOR@.@EXT_VERSION_PATCH@"/>
     <!-- Identifier should match that used for the AddOn service -->
     <identifier value="org.thanlwinsoft.ooo.my"/>
     <platform value="@EXTENSION_PLATFORM@" />
@@ -15,7 +15,8 @@
 	</registration>
 	-->
     <display-name>
-        <name lang="en">Myanmar Line Breaker</name>
+        <name lang="en">Myanmar Line Breaker &amp; Spellchecker</name>
+		<name lang="my">မြန်မာစကား အဖြတ်အတောက် နှင့် စာလုံးပေါင်းစစ်ဆေးခြင်း</name>
     </display-name>
 	<extension-description>
 		<src lang="en-US" xlink:href="l10n/description_en-US.txt"/>

@@ -22,6 +22,15 @@ enable_language(CXX C)
 
 set(EXTENSION_NAME myanmardict)
 set(EXTENSION_ID org.thanlwinsoft.ooo.my)
+set(EXT_VERSION_MAJOR 0)
+set(EXT_VERSION_MINOR 1)
+set(EXT_VERSION_PATCH 0)
+if (EXISTS ${PROJECT_SOURCE_DIR}/.hg)
+	execute_process(COMMAND hg id -n OUTPUT_VARIABLE MERCURIAL_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    string(REPLACE "+" "" MERCURIAL_VERSION ${MERCURIAL_VERSION})
+    set(EXT_VERSION_PATCH ${MERCURIAL_VERSION})
+endif (EXISTS ${PROJECT_SOURCE_DIR}/.hg)
 
 # add the binary tree to the search path for include files
 include_directories("${PROJECT_BINARY_DIR}")
@@ -30,7 +39,6 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     add_definitions(-DUNX=1 -DLINUX=1 -DCPPU_ENV=gcc3 -Wall 
         -Wno-unknown-pragmas -Wparentheses -Wextra -Wendif-labels -Wshadow
         -Wno-ctor-dtor-privacy -Wno-non-virtual-dtor -Werror)
-    set(BUILD_SHARED_LIBS on)
     execute_process(COMMAND uname -m
         OUTPUT_VARIABLE SYSTEM_MACHINE OUTPUT_STRIP_TRAILING_WHITESPACE)
     if (${SYSTEM_MACHINE} STREQUAL "i686")
@@ -39,7 +47,7 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
         set(EXTENSION_PLATFORM linux_x86_64)
     endif (${SYSTEM_MACHINE} STREQUAL "i686")
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-    set(BUILD_SHARED_LIBS on)
+	add_definitions(-DWNT=1 -DCPPU_ENV=msci /wd4290 /wd4800 /W4)
     set(EXTENSION_PLATFORM windows_${CMAKE_SYSTEM_PROCESSOR})
 endif (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 
@@ -87,12 +95,10 @@ endif (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 set_directory_properties(PROPERTY COMPILE_DEFINITIONS_DEBUG GROOO_DEBUG=1)
 
 # add the library
-add_library(mybreak src/MyanmarBreak.cpp
+add_library(mybreak SHARED src/MyanmarBreak.cpp
     src/MyanmarBreakIterator.cxx
     src/oooextDiagnostic.cxx
     )
-
-enable_testing()
 
 set_source_files_properties(src/MyanmarBreakIterator.cxx OBJECT_DEPENDS
     ${PROJECT_BINARY_DIR}/com/sun/star/lang/XInitialization.hpp)
@@ -106,6 +112,8 @@ add_executable(mybreakitertest src/test_MyanmarBreakIterator.cxx)
 add_test(NAME test_mybreakiter COMMAND "$<TARGET_FILE:mybreakitertest>"
     ENVIRONMENT PATH=${OO_SDK_URE_BIN} )
 
+enable_testing()
+
 file(RELATIVE_PATH OO_SDK_CPPUMAKER_NATIVE ${OO_SDK_URE_BIN} ${OO_SDK_CPPUMAKER} )
 
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/com/sun/star/lang/XInitialization.hpp
@@ -116,8 +124,8 @@ add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/com/sun/star/lang/XInitializatio
 
 target_link_libraries(mybreak ${OO_SDK_UNO_SAL} ${OO_SDK_UNO_CPPU} ${OO_SDK_UNO_CPPUHELPER} )
 target_link_libraries(mybreaktest ${OO_SDK_UNO_SAL})
-target_link_libraries(mybreakitertest ${OO_SDK_UNO_SAL} ${OO_SDK_UNO_CPPU}
-    ${OO_SDK_UNO_CPPUHELPER} mybreak)
+target_link_libraries(mybreakitertest mybreak ${OO_SDK_UNO_SAL} ${OO_SDK_UNO_CPPU}
+    ${OO_SDK_UNO_CPPUHELPER})
 
 set(UNO_SHARED_PREFIX ${CMAKE_SHARED_LIBRARY_PREFIX})
 set(UNO_SHARED_EXTENSION ${CMAKE_SHARED_LIBRARY_SUFFIX})
@@ -143,28 +151,39 @@ set(ZIP_FILES META-INF/manifest.xml description.xml
     ${L10N_FILES}
     ${UNO_SHARED_PREFIX}mybreak${UNO_SHARED_EXTENSION})
 
+add_custom_target(copyfiles ALL
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${UNO_SHARED_PREFIX}mybreak${UNO_SHARED_EXTENSION} ${PROJECT_BINARY_DIR}
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/dict/my_MM.dic ${PROJECT_BINARY_DIR}/my_MM.dic
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/dict/my_MM.aff ${PROJECT_BINARY_DIR}/my_MM.aff
+	)
+
 add_custom_target(mybreakextension ALL COMMAND ${ZIP} ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt ${ZIP_FILES}
     WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
 
-add_dependencies(mybreakextension copy_files mybreak)
+add_dependencies(copyfiles mybreak)
+add_dependencies(mybreakextension mybreak copyfiles)
 
 add_custom_target(install
     COMMAND ${UNOPKG} add --shared ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
+	WORKING_DIRECTORY ${OO_SDK_URE_BIN}
     COMMENT install the extension system wide - requires admin permissions)
 
 add_custom_target(uninstall
     COMMAND ${UNOPKG} remove --shared ${EXTENSION_ID}
+	WORKING_DIRECTORY ${OO_SDK_URE_BIN}
     COMMENT install the extension system wide - requires admin permissions)
 
-add_custom_target(install-user
+add_custom_target(install_user
     COMMAND ${UNOPKG} add ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
+	WORKING_DIRECTORY ${OO_SDK_URE_BIN}
     COMMENT install the extension for current user)
 
-add_custom_target(uninstall-user
+add_custom_target(uninstall_user
     COMMAND ${UNOPKG} remove ${EXTENSION_ID}
+	WORKING_DIRECTORY ${OO_SDK_URE_BIN}
     COMMENT uninstall the extension for current user)
 
-add_custom_target(reinstall-user
-    COMMAND ${UNOPKG} remove ${EXTENSION_ID}
-    COMMAND ${UNOPKG} add ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
+add_custom_target(reinstall_user
+    COMMAND ${UNOPKG} remove ${EXTENSION_ID} WORKING_DIRECTORY ${OO_SDK_URE_BIN}
+    COMMAND ${UNOPKG} add ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt WORKING_DIRECTORY ${OO_SDK_URE_BIN}
     COMMENT reinstall the extension for current user)

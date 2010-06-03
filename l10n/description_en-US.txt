@@ -1,1 +1,1 @@
-Myanmar syllable based line breaking.
+Myanmar word based line breaking and spellchecking.

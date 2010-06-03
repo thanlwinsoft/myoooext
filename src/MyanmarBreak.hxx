@@ -31,6 +31,10 @@
 #include "sal/types.h"
 #include "rtl/ustring.hxx"
 
+#ifdef _MSC_VER
+typedef long int32_t;
+#endif
+
 namespace org { namespace thanlwinsoft { namespace myanmar {
 
 class MyanmarBreak

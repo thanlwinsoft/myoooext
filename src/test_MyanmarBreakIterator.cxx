@@ -46,6 +46,9 @@
 #include "MyanmarBreakIterator.hxx"
 
 namespace css = ::com::sun::star;
+#ifdef _MSC_VER
+typedef long int32_t;
+#endif
 
 css::lang::Locale locale(::rtl::OUString::createFromAscii("my"), ::rtl::OUString(), ::rtl::OUString());
 
@@ -344,11 +347,11 @@ int main(int argc, char ** argv)
     {
         ::rtl::OUString myIterName =
             ::rtl::OUString::createFromAscii("com.sun.star.i18n.BreakIterator_my");
-        //css::uno::Reference<css::i18n::XBreakIterator> xMMBreak(xContext->
-        //    getServiceManager()->createInstanceWithContext(myIterName, xContext),
-        //     css::uno::UNO_QUERY);
-        css::uno::Reference<css::i18n::XBreakIterator> xMMBreak(
-            org::thanlwinsoft::ooo::my::myanmarbreakiterator::_create(xContext), css::uno::UNO_QUERY);
+        css::uno::Reference<css::i18n::XBreakIterator> xMMBreak(xContext->
+            getServiceManager()->createInstanceWithContext(myIterName, xContext),
+             css::uno::UNO_QUERY);
+        //css::uno::Reference<css::i18n::XBreakIterator> xMMBreak(
+        //    org::thanlwinsoft::ooo::my::myanmarbreakiterator::_create(xContext), css::uno::UNO_QUERY);
         if (!xMMBreak.is())
         {
             fprintf(stderr, "Failed to create BreakIterator_my\n");
