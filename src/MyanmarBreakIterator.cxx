@@ -55,7 +55,7 @@
 #include "oooextDiagnostic.hxx"
 #include "MyanmarBreakIterator.hxx"
 
-// #define MMBI_DEBUG
+//#define MMBI_DEBUG
 
 /// anonymous implementation namespace
 namespace org { namespace thanlwinsoft { namespace ooo { namespace my {
@@ -287,15 +287,25 @@ css::uno::Sequence< ::rtl::OUString > SAL_CALL org::thanlwinsoft::ooo::my::Myanm
 // ::com::sun::star::i18n::XBreakIterator:
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::nextCharacters(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nCharacterIteratorMode, ::sal_Int32 nCount, ::sal_Int32 & nDone) throw (css::uno::RuntimeException)
 {
-    return m_xBreakIteratorDelegate->nextCharacters(aText, nStartPos, aLocale,
+    ::sal_Int32 ret = m_xBreakIteratorDelegate->nextCharacters(aText, nStartPos, aLocale,
                                                     nCharacterIteratorMode,
                                                     nCount, nDone);
+#ifdef MMBI_DEBUG
+    fprintf(stderr, "nextCharacters from %d count=%d done=%d return=%d mode=%d\n",
+            nStartPos, nCount, nDone, ret, nCharacterIteratorMode);
+#endif
+    return ret;
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::previousCharacters(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nCharacterIteratorMode, ::sal_Int32 nCount, ::sal_Int32 & nDone) throw (css::uno::RuntimeException)
 {
-    return m_xBreakIteratorDelegate->previousCharacters(aText, nStartPos, aLocale,
+    ::sal_Int32 ret = m_xBreakIteratorDelegate->previousCharacters(aText, nStartPos, aLocale,
                                                         nCharacterIteratorMode, nCount, nDone);
+#ifdef MMBI_DEBUG
+    fprintf(stderr, "previousCharacters from %d count=%d done=%d return=%d mode=%d\n",
+            nStartPos, nCount, nDone, ret, nCharacterIteratorMode);
+#endif
+    return ret;
 }
 
 bool org::thanlwinsoft::ooo::my::MyanmarBreakIterator::isWhiteSpace(const ::rtl::OUString & aText, ::sal_Int32 i)
@@ -604,18 +614,34 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::g
     css::i18n::Boundary wordBoundary;
     if (nPos >= 0 && nPos < aText.getLength())
     {
-        if ((nPos <= 0 || otm::MyanmarBreak::isMyanmar(aText[nPos-1])) &&
-            otm::MyanmarBreak::isMyanmar(aText[nPos]))
+        int32_t mmStart = nPos;
+        if (mmStart < 0) mmStart = 0;
+        if (nWordType == css::i18n::WordType::ANYWORD_IGNOREWHITESPACES ||
+            nWordType == css::i18n::WordType::DICTIONARY_WORD)
+        {
+            // if whitespace skip to nearest wordBoundary
+            if (bPreferForward)
+            {
+                while (isWhiteSpace(aText, mmStart) && mmStart < aText.getLength())
+                    ++mmStart;
+            }
+            else
+            {
+                while (isWhiteSpace(aText, mmStart) && mmStart > 0)
+                    --mmStart;
+            }
+        }
+        if ((mmStart > 0 && otm::MyanmarBreak::isMyanmar(aText[mmStart-1])) ||
+            otm::MyanmarBreak::isMyanmar(aText[mmStart]))
         {
             // We need to search in both directions for a boundary, but we don't know where
             // the previous word starts, so to be safe, search from beginning of the
             // nearest continuous sequence of continuous Myanmar characters
-            int32_t mmStart = nPos;
-            if (mmStart < 0) mmStart = 0;
             while ((mmStart > 0) && !isPunctuation(aText, mmStart-1) &&
                 otm::MyanmarBreak::isMyanmar(aText[mmStart-1])) --mmStart;
             wordBoundary = nextWord(aText, mmStart-1, aLocale, nWordType);
-            while (wordBoundary.endPos < nPos)
+            while (wordBoundary.endPos < nPos ||
+                (bPreferForward && wordBoundary.endPos == nPos))
             {
 #ifdef MMBI_DEBUG
                 fprintf(stderr, "wb %d-%d ", wordBoundary.startPos, wordBoundary.endPos);
@@ -623,6 +649,16 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::g
                 // use end_pos-1 here, because nextWord always moves to start of
                 // next word after specified position
                 wordBoundary = nextWord(aText, wordBoundary.endPos-1, aLocale, nWordType);
+            }
+            if (nWordType == css::i18n::WordType::WORD_COUNT &&
+                wordBoundary.startPos > 0 &&
+                wordBoundary.startPos < aText.getLength() &&
+                !isWhiteSpace(aText, wordBoundary.startPos))
+            {
+                // if it is a non-whitespace word append leading punctuation
+                // in Word Count mode
+                while (isPunctuation(aText, wordBoundary.startPos-1))
+                    wordBoundary.startPos--;
             }
 #ifdef MMBI_DEBUG
             rtl::OString utf8String;
@@ -784,21 +820,33 @@ css::i18n::LineBreakResults SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIte
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::beginOfCharBlock(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nCharType) throw (css::uno::RuntimeException)
 {
+#ifdef MMBI_DEBUG
+    fprintf(stderr, "beginOfCharBlock %d type %d\n", nStartPos, nCharType);
+#endif
     return m_xBreakIteratorDelegate->beginOfCharBlock(aText, nStartPos, aLocale, nCharType);
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::endOfCharBlock(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nCharType) throw (css::uno::RuntimeException)
 {
+#ifdef MMBI_DEBUG
+    fprintf(stderr, "endOfCharBlock %d type %d\n", nStartPos, nCharType);
+#endif
     return m_xBreakIteratorDelegate->endOfCharBlock(aText, nStartPos, aLocale, nCharType);
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::nextCharBlock(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nCharType) throw (css::uno::RuntimeException)
 {
+#ifdef MMBI_DEBUG
+    fprintf(stderr, "nextCharBlock %d type %d\n", nStartPos, nCharType);
+#endif
     return m_xBreakIteratorDelegate->nextCharBlock(aText, nStartPos, aLocale, nCharType);
 }
 
 ::sal_Int32 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::previousCharBlock(const ::rtl::OUString & aText, ::sal_Int32 nStartPos, const css::lang::Locale & aLocale, ::sal_Int16 nCharType) throw (css::uno::RuntimeException)
 {
+#ifdef MMBI_DEBUG
+    fprintf(stderr, "previousCharBlock %d type %d\n", nStartPos, nCharType);
+#endif
     return m_xBreakIteratorDelegate->previousCharBlock(aText, nStartPos, aLocale, nCharType);
 }
 

@@ -32,6 +32,7 @@
 #include "cppuhelper/bootstrap.hxx"
 
 #include "com/sun/star/frame/XDesktop.hpp"
+#include "com/sun/star/frame/XFrame.hpp"
 #include "com/sun/star/i18n/WordType.hpp"
 #include "com/sun/star/i18n/Boundary.hpp"
 #include "com/sun/star/i18n/XBreakIterator.hpp"
@@ -241,6 +242,7 @@ bool breakPointsCorrect(css::uno::Reference<css::i18n::XBreakIterator> & xBreak,
                     utf8Word.getStr(), b.startPos, b.endPos,
                     expectedUtf8Word.getStr(), expectedBreaks[i][0],
                     expectedBreaks[i][1], nWordType);
+            valid = false;
             return false;
         }
         pos = b.endPos - 1;
@@ -275,17 +277,25 @@ bool breakPointsCorrect(css::uno::Reference<css::i18n::XBreakIterator> & xBreak,
                     utf8Word.getStr(), b.startPos, b.endPos,
                     expectedUtf8Word.getStr(), expectedBreaks[i][0],
                     expectedBreaks[i][1], nWordType);
+            valid = false;
             return false;;
         }
         pos = b.startPos;
     }
+    int32_t searchPos = 0;
+    //if (nWordType != css::i18n::WordType::DICTIONARY_WORD)
+    //    return valid;
     for (size_t i = 0; i < numBreaks; i++)
     {
-        if (expectedBreaks[i][0] + 1 < expectedBreaks[i][1])
+        for (; searchPos < expectedBreaks[i][1]; searchPos++)
         {
-            ::sal_Int32 searchPos = expectedBreaks[i][0] + 1;
+            if (utf16text[searchPos] == 0x20 && searchPos < expectedBreaks[i][0])
+            {
+                // skip space words
+                continue;
+            }
             css::i18n::Boundary b = xBreak->getWordBoundary(utf16text,
-                searchPos, locale, nWordType, sal_False);
+                searchPos, locale, nWordType, sal_True);
             if (b.startPos != expectedBreaks[i][0] ||
                 b.endPos != expectedBreaks[i][1])
             {
@@ -296,10 +306,10 @@ bool breakPointsCorrect(css::uno::Reference<css::i18n::XBreakIterator> & xBreak,
                                             expectedBreaks[i][1] - expectedBreaks[i][0]);
                 ::rtl::OString expectedUtf8Word;
                 expectedWord.convertToString(&expectedUtf8Word, RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
-                fprintf(stderr, "getWordBoundary gave %d-%d '%s' expected %d-%d '%s'\n",
-                        b.startPos, b.endPos, utf8Word.getStr(),
+                fprintf(stderr, "getWordBoundary %d gave %d-%d '%s' expected %d-%d '%s' type %d\n",
+                        searchPos, b.startPos, b.endPos, utf8Word.getStr(),
                         expectedBreaks[i][0], expectedBreaks[i][1],
-                        expectedUtf8Word.getStr());
+                        expectedUtf8Word.getStr(), nWordType);
                 valid = false;
             }
         }
@@ -591,6 +601,8 @@ int main(int argc, char ** argv)
             fprintf(stderr, "\n*** %s test failed! ***\n\n", argv[0]);
 
     }
+    // The bootstrap may have started an instance of OpenOffice, which will
+    // cause ctest to hang unless we terminate it.
     ::rtl::OUString desktopService =
             ::rtl::OUString::createFromAscii("com.sun.star.frame.Desktop");
     css::uno::Reference<css::frame::XDesktop> xDesktop(xContext->
@@ -600,10 +612,16 @@ int main(int argc, char ** argv)
     {
         try
         {
-            bool terminate = xDesktop->terminate();
-            if (!terminate)
+            css::uno::Reference <css::frame::XFrame > xFrame = xDesktop->getCurrentFrame();
+            // if there is a frame, then it probably wasn't created by this
+            //  test, so don't terminate
+            if (!xFrame.is())
             {
-                printf("Desktop terminate vetoed\n");
+                bool terminate = xDesktop->terminate();
+                if (!terminate)
+                {
+                    printf("Desktop terminate vetoed\n");
+                }
             }
         }
         catch (css::lang::DisposedException e)
