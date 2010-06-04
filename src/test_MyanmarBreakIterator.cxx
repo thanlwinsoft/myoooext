@@ -292,7 +292,9 @@ bool breakPointsCorrect(css::uno::Reference<css::i18n::XBreakIterator> & xBreak,
     {
         for (; searchPos < expectedBreaks[i][1]; searchPos++)
         {
-            if (utf16text[searchPos] == 0x20 && searchPos < expectedBreaks[i][0])
+            if ((utf16text[searchPos] == 0x20 || utf16text[searchPos] == 0x09 ||
+                 utf16text[searchPos] == 0x0A)
+                && searchPos < expectedBreaks[i][0])
             {
                 // skip space words
                 continue;
@@ -626,6 +628,24 @@ int main(int argc, char ** argv)
         status &= compareBreaks(xUnicodeBreak, xMMBreak, testMixedLang,
                                 css::i18n::WordType::WORD_COUNT,
                                 ARRAY_WITH_LEN(testMixedExtraBreaks));
+
+        ::rtl::OString testNumTag("12.\tဒေသများ");
+        if (verbose)
+        {
+            showNextBreaks(xUnicodeBreak, testNumTag, css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
+            showNextBreaks(xMMBreak, testNumTag, css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
+        }
+        int32_t numTabBreaks1[][2] = {{0,2},{2,3},{4,7},{7,11}};
+        status &= breakPointsCorrect(xMMBreak, testNumTag,
+                                ARRAY_WITH_LEN(numTabBreaks1),
+                                css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
+        status &= breakPointsCorrect(xMMBreak, testNumTag,
+                                ARRAY_WITH_LEN(numTabBreaks1),
+                                css::i18n::WordType::DICTIONARY_WORD);
+        int32_t numTabBreaks3[][2] = {{0,3},{3,4},{4,7},{7,11}};
+        status &= breakPointsCorrect(xMMBreak, testNumTag,
+                                ARRAY_WITH_LEN(numTabBreaks3),
+                                css::i18n::WordType::WORD_COUNT);
 
         if (!status)
             fprintf(stderr, "\n*** %s test failed! ***\n\n", argv[0]);

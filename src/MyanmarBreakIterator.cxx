@@ -55,7 +55,7 @@
 #include "oooextDiagnostic.hxx"
 #include "MyanmarBreakIterator.hxx"
 
-//#define MMBI_DEBUG
+#define MMBI_DEBUG
 
 /// anonymous implementation namespace
 namespace org { namespace thanlwinsoft { namespace ooo { namespace my {
@@ -310,6 +310,24 @@ css::uno::Sequence< ::rtl::OUString > SAL_CALL org::thanlwinsoft::ooo::my::Myanm
 
 bool org::thanlwinsoft::ooo::my::MyanmarBreakIterator::isWhiteSpace(const ::rtl::OUString & aText, ::sal_Int32 i)
 {
+    // see ICU u_isWhitespace
+    switch (aText[i])
+    {
+        case 0x0009:
+        case 0x000A:
+        case 0x000B:
+        case 0x000C:
+        case 0x000D:
+        case 0x001C:
+        case 0x001D:
+        case 0x001E:
+        case 0x001F:
+        case 0x0085:
+        case 0x200B:// ZWSP
+            return true;
+        default:
+            break;
+    }
     return (m_xCharClassification->getType(aText, i) == css::i18n::UnicodeType::SPACE_SEPARATOR);
 }
 

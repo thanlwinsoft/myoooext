@@ -84,5 +84,11 @@ int main(int /*argc*/, char ** /*argv*/)
     ::rtl::OString testD("သင်္ဘောနဲ့သွေးရင်ခေါင်မှုလား။");
     int32_t testDBreaks[] = {7,10,14,17,22,25,28,29};
     status &= breakPointsCorrect(testD, testDBreaks, sizeof(testDBreaks)/sizeof(int32_t));
+
+    ::rtl::OString testE("ရပ်ရွာဒေသအစိုးရနှင့်");
+    int32_t testEBreaks[] = {3,6,8,9,10,14,15,20};
+    status &= breakPointsCorrect(testE, testEBreaks, sizeof(testEBreaks)/sizeof(int32_t));
+
+
     return !status;
 }
