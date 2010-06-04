@@ -41,6 +41,8 @@ namespace css = ::com::sun::star;
 // component and service helper functions:
 ::rtl::OUString SAL_CALL _getImplementationName();
 css::uno::Sequence< ::rtl::OUString > SAL_CALL _getSupportedServiceNames();
+
+SAL_DLLPUBLIC_EXPORT
 css::uno::Reference< css::uno::XInterface > SAL_CALL _create( css::uno::Reference< css::uno::XComponentContext > const & context );
 
 }}}}} // closing component helper namespace

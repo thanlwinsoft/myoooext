@@ -457,6 +457,8 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::n
                 {
                     break;
                 }
+                if (i == aText.getLength() || !otm::MyanmarBreak::isMyanmar(aText[i+1]))
+                    break;
             }
             if (nWordType == css::i18n::WordType::WORD_COUNT)
             {
@@ -517,13 +519,6 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::p
             }
             else // not Myanmar
             {
-                while (i > 0 && !otm::MyanmarBreak::isMyanmar(aText[i-1])
-                    && (nWordType == css::i18n::WordType::WORD_COUNT ||
-                        !isPunctuation(aText, i-1))
-                    && (!isWhiteSpace(aText, i)))
-                {
-                    --i;
-                }
                 wordBoundary.endPos = i;
             }
         }
@@ -872,6 +867,7 @@ css::uno::Sequence< ::rtl::OUString > SAL_CALL _getSupportedServiceNames()
     return s;
 }
 
+SAL_DLLPUBLIC_EXPORT
 css::uno::Reference< css::uno::XInterface > SAL_CALL _create(
     const css::uno::Reference< css::uno::XComponentContext > & context)
         SAL_THROW((css::uno::Exception))

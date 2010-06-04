@@ -347,11 +347,12 @@ int main(int argc, char ** argv)
     {
         ::rtl::OUString myIterName =
             ::rtl::OUString::createFromAscii("com.sun.star.i18n.BreakIterator_my");
-        css::uno::Reference<css::i18n::XBreakIterator> xMMBreak(xContext->
-            getServiceManager()->createInstanceWithContext(myIterName, xContext),
-             css::uno::UNO_QUERY);
-        //css::uno::Reference<css::i18n::XBreakIterator> xMMBreak(
-        //    org::thanlwinsoft::ooo::my::myanmarbreakiterator::_create(xContext), css::uno::UNO_QUERY);
+        //css::uno::Reference<css::i18n::XBreakIterator> xMMBreak(xContext->
+        //    getServiceManager()->createInstanceWithContext(myIterName, xContext),
+        //     css::uno::UNO_QUERY);
+        // Calling create directly, enables the debugger to see the break iterator properly
+        css::uno::Reference<css::i18n::XBreakIterator> xMMBreak(
+            org::thanlwinsoft::ooo::my::myanmarbreakiterator::_create(xContext), css::uno::UNO_QUERY);
         if (!xMMBreak.is())
         {
             fprintf(stderr, "Failed to create BreakIterator_my\n");
@@ -600,6 +601,32 @@ int main(int argc, char ** argv)
         status &= compareBreaks(xUnicodeBreak, xMMBreak, testC,
                                 css::i18n::WordType::WORD_COUNT, testCExtraBreaks,
                                 sizeof(testCExtraBreaks)/sizeof(testCExtraBreaks[0]));
+
+        ::rtl::OString testMixedLang("မြန်မာ English မြန်မာ (ကွင်း)");
+        int32_t testMixedLangBreaks1[][2] = {{0,6},{7,14},{15,21},{22,23},{23,28},{28,29}};
+        status &= breakPointsCorrect(xMMBreak, testMixedLang,
+                                ARRAY_WITH_LEN(testMixedLangBreaks1),
+                                css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
+        status &= breakPointsCorrect(xMMBreak, testMixedLang,
+                                ARRAY_WITH_LEN(testMixedLangBreaks1),
+                                css::i18n::WordType::DICTIONARY_WORD);
+        int32_t testMixedLangBreaks3[][2] = {{0,6},{6,7},{7,14},{14,15},{15,21},{21,22},{22,29}};
+        status &= breakPointsCorrect(xMMBreak, testMixedLang,
+                                ARRAY_WITH_LEN(testMixedLangBreaks3),
+                                css::i18n::WordType::WORD_COUNT);
+
+        int32_t testMixedExtraBreaks [] = { };
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testMixedLang,
+                                css::i18n::WordType::ANYWORD_IGNOREWHITESPACES,
+                                ARRAY_WITH_LEN(testMixedExtraBreaks));
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testMixedLang,
+                                css::i18n::WordType::DICTIONARY_WORD,
+                                ARRAY_WITH_LEN(testMixedExtraBreaks));
+
+        status &= compareBreaks(xUnicodeBreak, xMMBreak, testMixedLang,
+                                css::i18n::WordType::WORD_COUNT,
+                                ARRAY_WITH_LEN(testMixedExtraBreaks));
+
         if (!status)
             fprintf(stderr, "\n*** %s test failed! ***\n\n", argv[0]);
 
