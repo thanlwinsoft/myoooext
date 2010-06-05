@@ -617,7 +617,7 @@ int main(int argc, char ** argv)
                                 ARRAY_WITH_LEN(testMixedLangBreaks3),
                                 css::i18n::WordType::WORD_COUNT);
 
-        int32_t testMixedExtraBreaks [] = { };
+        int32_t testMixedExtraBreaks [] = { -1 }; // hack since windows doesn't allow empty array
         status &= compareBreaks(xUnicodeBreak, xMMBreak, testMixedLang,
                                 css::i18n::WordType::ANYWORD_IGNOREWHITESPACES,
                                 ARRAY_WITH_LEN(testMixedExtraBreaks));

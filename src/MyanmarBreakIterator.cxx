@@ -43,8 +43,6 @@
 #include "com/sun/star/i18n/UnicodeType.hpp"
 #include "com/sun/star/i18n/XCharacterClassification.hpp"
 #include "com/sun/star/i18n/XBreakIterator.hpp"
-//#include "com/sun/star/linguistic2/XDictionary.hpp"
-//#include "com/sun/star/linguistic2/XDictionaryEntry.hpp"
 #include "com/sun/star/linguistic2/XSpellChecker.hpp"
 #include "com/sun/star/linguistic2/XLinguServiceManager.hpp"
 #include "com/sun/star/frame/XFrame.hpp"
@@ -53,7 +51,9 @@
 #include "oooextDiagnostic.hxx"
 #include "MyanmarBreakIterator.hxx"
 
+#ifndef NDEBUG
 #define MMBI_DEBUG
+#endif
 
 /// anonymous implementation namespace
 namespace org { namespace thanlwinsoft { namespace ooo { namespace my {

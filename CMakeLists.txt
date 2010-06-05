@@ -105,12 +105,12 @@ set_source_files_properties(src/MyanmarBreakIterator.cxx OBJECT_DEPENDS
 
 # test MyanmarBreak
 add_executable(mybreaktest src/test_MyanmarBreak.cpp src/MyanmarBreak.cpp)
-add_test(NAME test_mybreak COMMAND "$<TARGET_FILE:mybreaktest>"
-    ENVIRONMENT PATH=${OO_SDK_URE_BIN} )
+add_test(NAME test_mybreak COMMAND "$<TARGET_FILE:mybreaktest>")
 
 add_executable(mybreakitertest src/test_MyanmarBreakIterator.cxx)
-add_test(NAME test_mybreakiter COMMAND "$<TARGET_FILE:mybreakitertest>"
-    ENVIRONMENT PATH=${OO_SDK_URE_BIN} )
+add_test(NAME test_mybreakiter COMMAND "$<TARGET_FILE:mybreakitertest>")
+
+set_tests_properties(test_mybreak test_mybreakiter PROPERTIES ENVIRONMENT PATH=${OO_SDK_URE_BIN})
 
 enable_testing()
 
