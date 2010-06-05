@@ -1,1 +1,2 @@
-Myanmar word based line breaking and spellchecking.
+Myanmar word based line breaking and spellchecking. 
+The Myanmar word list is derived from Dr Judson's Myanmar-Engish dictionary.

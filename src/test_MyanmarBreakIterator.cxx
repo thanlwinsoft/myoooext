@@ -646,6 +646,12 @@ int main(int argc, char ** argv)
         status &= breakPointsCorrect(xMMBreak, testNumTag,
                                 ARRAY_WITH_LEN(numTabBreaks3),
                                 css::i18n::WordType::WORD_COUNT);
+	
+		::rtl::OString testD("ဌာန");
+		int32_t testDBreaks1[][2] = {{0,3}};
+		status &= breakPointsCorrect(xMMBreak, testD,
+                                ARRAY_WITH_LEN(testDBreaks1),
+                                css::i18n::WordType::DICTIONARY_WORD);
 
         if (!status)
             fprintf(stderr, "\n*** %s test failed! ***\n\n", argv[0]);

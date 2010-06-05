@@ -20,7 +20,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.6.0 FATAL_ERROR)
 project (openoffice.org-my)
 enable_language(CXX C)
 
-set(EXTENSION_NAME myanmardict)
+set(EXTENSION_NAME thanlwinsoft-ooo-myanmar)
 set(EXTENSION_ID org.thanlwinsoft.ooo.my)
 set(EXT_VERSION_MAJOR 0)
 set(EXT_VERSION_MINOR 1)
@@ -111,6 +111,10 @@ add_executable(mybreakitertest src/test_MyanmarBreakIterator.cxx)
 add_test(NAME test_mybreakiter COMMAND "$<TARGET_FILE:mybreakitertest>")
 
 set_tests_properties(test_mybreak test_mybreakiter PROPERTIES ENVIRONMENT PATH=${OO_SDK_URE_BIN})
+set_tests_properties(test_mybreak PROPERTIES
+	LABELS "Myanmar Syllable Break Positions")
+set_tests_properties(test_mybreakiter PROPERTIES
+	LABELS "Myanmar Break Iterator for OpenOffice.org (extension needs to be installed)")
 
 enable_testing()
 
@@ -160,11 +164,15 @@ add_custom_target(copyfiles ALL
 add_custom_target(mybreakextension ALL COMMAND ${ZIP} ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt ${ZIP_FILES}
     WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
 
+set_directory_properties(PROPERTY ADDITIONAL_MAKE_CLEAN_FILES ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt)
+set_directory_properties(PROPERTY ADDITIONAL_MAKE_CLEAN_FILES ${PROJECT_BINARY_DIR}/my_MM.dic)
+set_directory_properties(PROPERTY ADDITIONAL_MAKE_CLEAN_FILES ${PROJECT_BINARY_DIR}/my_MM.aff)
+
 add_dependencies(copyfiles mybreak)
 add_dependencies(mybreakextension mybreak copyfiles)
 
 add_custom_target(install
-    COMMAND ${UNOPKG} add --shared ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
+    COMMAND ${UNOPKG} add -s --shared ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
 	WORKING_DIRECTORY ${OO_SDK_URE_BIN}
     COMMENT install the extension system wide - requires admin permissions)
 
@@ -174,7 +182,7 @@ add_custom_target(uninstall
     COMMENT install the extension system wide - requires admin permissions)
 
 add_custom_target(install_user
-    COMMAND ${UNOPKG} add ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
+    COMMAND ${UNOPKG} add -s ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
 	WORKING_DIRECTORY ${OO_SDK_URE_BIN}
     COMMENT install the extension for current user)
 
@@ -184,6 +192,7 @@ add_custom_target(uninstall_user
     COMMENT uninstall the extension for current user)
 
 add_custom_target(reinstall_user
-    COMMAND ${UNOPKG} remove ${EXTENSION_ID} WORKING_DIRECTORY ${OO_SDK_URE_BIN}
-    COMMAND ${UNOPKG} add ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt WORKING_DIRECTORY ${OO_SDK_URE_BIN}
+    COMMAND ${UNOPKG} remove ${EXTENSION_ID}
+    COMMAND ${UNOPKG} add -s ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
+	WORKING_DIRECTORY ${OO_SDK_URE_BIN}
     COMMENT reinstall the extension for current user)

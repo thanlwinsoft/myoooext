@@ -1,9 +1,17 @@
-This product is made available subject to the terms of GNU Lesser General Public License Version 3.
+The Myanmar Extension from ThanLwinSoft is made available subject to the terms
+of GNU Lesser General Public License Version 3.
+
 A copy of the LGPL license can be found at http://www.openoffice.org/license.html
 
-------------------------------------
+Due to Copyright restrictions on more recent dictionaries, this extension uses
+a Myanmar Word List which is derived from Dr Judson's Myanmar English 
+Dictionary, which was first published in 1852 and last revised in 1918.
+A few words have been added or had their spellings updated to reflect modern
+usage.
+
+-------------------------------------------------------
 Copyright 2010	Keith Stribley http://thanlwinsoft.org/
-------------------------------------
+-------------------------------------------------------
 
 
 		   GNU LESSER GENERAL PUBLIC LICENSE

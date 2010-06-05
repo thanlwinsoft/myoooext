@@ -473,7 +473,7 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::n
                 {
                     break;
                 }
-                if (i == aText.getLength() || !otm::MyanmarBreak::isMyanmar(aText[i+1]))
+                if (i == aText.getLength() || !otm::MyanmarBreak::isMyanmar(aText[i]))
                     break;
             }
             if (nWordType == css::i18n::WordType::WORD_COUNT)
