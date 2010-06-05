@@ -4,8 +4,6 @@
  *
  * This file is part of the ThanLwinSoft Myanmar Extension for OpenOffice.org.
  *
- * OpenOffice.org - a multi-platform office productivity suite
- *
  * This extension is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License version 3
  * only, as published by the Free Software Foundation.
