@@ -46,9 +46,11 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     elseif (${SYSTEM_MACHINE} STREQUAL "x86_64")
         set(EXTENSION_PLATFORM linux_x86_64)
     endif (${SYSTEM_MACHINE} STREQUAL "i686")
+    set(PATH_SEPARATOR ":")
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 	add_definitions(-DWNT=1 -DCPPU_ENV=msci /wd4290 /wd4800 /W4)
     set(EXTENSION_PLATFORM windows_${CMAKE_SYSTEM_PROCESSOR})
+    set(PATH_SEPARATOR ";")
 endif (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 
 
@@ -81,9 +83,20 @@ find_path(OO_BASIS_PROGRAM offapi.rdb
 find_path(OO_SDK_URE_BIN version.ini versionrc 
     PATHS ENV OO_SDK_URE_HOME /usr/lib/ure 
     PATH_SUFFIXES bin DOC "URE bin directory")
+find_file(OO_SDK_VERSION version.ini versionrc
+    PATHS ENV OO_SDK_URE_HOME /usr/lib/ure
+    PATH_SUFFIXES bin DOC "URE version file")
 find_program(UNOPKG unopkg PATHS ENV OFFICE_PROGRAM_PATH /usr/bin
     DOC "OpenOffice.org Extension Manager")
 find_program(ZIP zip)
+
+file(STRINGS ${OO_SDK_VERSION} OO_VERSION_STRING REGEX "OOOBaseVersion=[0-9.]+")
+string(REPLACE "OOOBaseVersion=" "" OO_VERSION ${OO_VERSION_STRING})
+if (${OO_VERSION} GREATER 3.2)
+    set(UNOPKG_OPTIONS -s)
+else (${OO_VERSION} GREATER 3.2)
+    set(UNOPKG_OPTIONS "")
+endif (${OO_VERSION} GREATER 3.2)
 
 include_directories ("${OO_SDK_INCLUDE}")
 
@@ -110,7 +123,8 @@ add_test(NAME test_mybreak COMMAND "$<TARGET_FILE:mybreaktest>")
 add_executable(mybreakitertest src/test_MyanmarBreakIterator.cxx)
 add_test(NAME test_mybreakiter COMMAND "$<TARGET_FILE:mybreakitertest>")
 
-set_tests_properties(test_mybreak test_mybreakiter PROPERTIES ENVIRONMENT PATH=${OO_SDK_URE_BIN})
+set_tests_properties(test_mybreak test_mybreakiter PROPERTIES 
+  ENVIRONMENT PATH=${OO_SDK_URE_BIN}${PATH_SEPARATOR}$ENV{PATH})
 set_tests_properties(test_mybreak PROPERTIES
 	LABELS "Myanmar Syllable Break Positions")
 set_tests_properties(test_mybreakiter PROPERTIES
@@ -171,28 +185,33 @@ set_directory_properties(PROPERTY ADDITIONAL_MAKE_CLEAN_FILES ${PROJECT_BINARY_D
 add_dependencies(copyfiles mybreak)
 add_dependencies(mybreakextension mybreak copyfiles)
 
+# unopkg -s option is only available with OOo 3.3
+
 add_custom_target(install
-    COMMAND ${UNOPKG} add -s --shared ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
-	WORKING_DIRECTORY ${OO_SDK_URE_BIN}
+    COMMAND ${UNOPKG} add ${UNOPKG_OPTIONS} --shared ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
+    # COMMAND ${UNOPKG} add -s --shared ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
+    WORKING_DIRECTORY ${OO_SDK_URE_BIN}
     COMMENT install the extension system wide - requires admin permissions)
 
 add_custom_target(uninstall
     COMMAND ${UNOPKG} remove --shared ${EXTENSION_ID}
-	WORKING_DIRECTORY ${OO_SDK_URE_BIN}
+    WORKING_DIRECTORY ${OO_SDK_URE_BIN}
     COMMENT install the extension system wide - requires admin permissions)
 
 add_custom_target(install_user
-    COMMAND ${UNOPKG} add -s ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
-	WORKING_DIRECTORY ${OO_SDK_URE_BIN}
+#    COMMAND ${UNOPKG} add -s ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
+    COMMAND ${UNOPKG} add ${UNOPKG_OPTIONS} ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
+    WORKING_DIRECTORY ${OO_SDK_URE_BIN}
     COMMENT install the extension for current user)
 
 add_custom_target(uninstall_user
     COMMAND ${UNOPKG} remove ${EXTENSION_ID}
-	WORKING_DIRECTORY ${OO_SDK_URE_BIN}
+    WORKING_DIRECTORY ${OO_SDK_URE_BIN}
     COMMENT uninstall the extension for current user)
 
 add_custom_target(reinstall_user
     COMMAND ${UNOPKG} remove ${EXTENSION_ID}
-    COMMAND ${UNOPKG} add -s ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
+    COMMAND ${UNOPKG} add ${UNOPKG_OPTIONS} ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
+    # COMMAND ${UNOPKG} add -s ${PROJECT_BINARY_DIR}/${EXTENSION_NAME}_${EXTENSION_PLATFORM}.oxt
 	WORKING_DIRECTORY ${OO_SDK_URE_BIN}
     COMMENT reinstall the extension for current user)

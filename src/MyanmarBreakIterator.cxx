@@ -52,7 +52,7 @@
 #include "MyanmarBreakIterator.hxx"
 
 #ifndef NDEBUG
-#define MMBI_DEBUG
+//#define MMBI_DEBUG
 #endif
 
 /// anonymous implementation namespace

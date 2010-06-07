@@ -89,9 +89,9 @@ int main(int /*argc*/, char ** /*argv*/)
     int32_t testEBreaks[] = {3,6,8,9,10,14,15,20};
     status &= breakPointsCorrect(testE, testEBreaks, sizeof(testEBreaks)/sizeof(int32_t));
 
-	//::rtl::OString testF("ဌာန");
-    //int32_t testFBreaks[] = {2,3};
-    //status &= breakPointsCorrect(testF, testFBreaks, sizeof(testFBreaks)/sizeof(int32_t));
+    ::rtl::OString testF("၎င်း၊");
+    int32_t testFBreaks[] = {4,5};
+    status &= breakPointsCorrect(testF, testFBreaks, sizeof(testFBreaks)/sizeof(int32_t));
 
     return !status;
 }

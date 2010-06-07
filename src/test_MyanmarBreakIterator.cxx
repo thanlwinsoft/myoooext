@@ -339,10 +339,20 @@ int main(int argc, char ** argv)
     }
     bool status = true;
 
-    css::uno::Reference<css::uno::XComponentContext> xContext = cppu::bootstrap();
-    if (!xContext.is())
+    css::uno::Reference<css::uno::XComponentContext> xContext;
+    try
     {
-        fprintf(stderr, "Failed to bootstrap context\n");
+      xContext.set(cppu::bootstrap());
+      if (!xContext.is())
+      {
+          fprintf(stderr, "Failed to bootstrap context\n");
+          return -1;
+      }
+    }
+    catch (cppu::BootstrapException be)
+    {
+
+        fprintf(stderr, "Exception in bootstrap context\n");
         return -1;
     }
     // create a container block for the references
@@ -646,10 +656,10 @@ int main(int argc, char ** argv)
         status &= breakPointsCorrect(xMMBreak, testNumTag,
                                 ARRAY_WITH_LEN(numTabBreaks3),
                                 css::i18n::WordType::WORD_COUNT);
-	
-		::rtl::OString testD("ဌာန");
-		int32_t testDBreaks1[][2] = {{0,3}};
-		status &= breakPointsCorrect(xMMBreak, testD,
+
+        ::rtl::OString testD("ဌာန");
+        int32_t testDBreaks1[][2] = {{0,3}};
+        status &= breakPointsCorrect(xMMBreak, testD,
                                 ARRAY_WITH_LEN(testDBreaks1),
                                 css::i18n::WordType::DICTIONARY_WORD);
 
