@@ -326,11 +326,25 @@ bool org::thanlwinsoft::ooo::my::MyanmarBreakIterator::isWhiteSpace(const ::rtl:
         default:
             break;
     }
+    if (otm::MyanmarBreak::isMyanmar(aText[i]))
+        return false;
     return (m_xCharClassification->getType(aText, i) == css::i18n::UnicodeType::SPACE_SEPARATOR);
 }
 
 bool org::thanlwinsoft::ooo::my::MyanmarBreakIterator::isPunctuation(const ::rtl::OUString & aText, ::sal_Int32 i)
 {
+    if (otm::MyanmarBreak::isMyanmar(aText[i]))
+    {
+        // override the classification of 0x104C-0x104F
+        switch (aText[i])
+        {
+          case 0x104A:
+          case 0x104B:
+            return true;
+          default:
+            return false;
+        }
+    }
     sal_Int16 cType = m_xCharClassification->getType(aText, i);
     return (cType == css::i18n::UnicodeType::OTHER_PUNCTUATION ||
             cType == css::i18n::UnicodeType::START_PUNCTUATION ||
