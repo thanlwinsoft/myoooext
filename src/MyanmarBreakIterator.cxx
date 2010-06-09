@@ -524,7 +524,7 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::n
     // The start of the word is not Myanmar, but if the end is then back track
     // since Myanmar typists don't always put a space after an English word
     // joined with a Myanmar particle.
-    while (wordBoundary.startPos < wordBoundary.endPos &&
+    while (wordBoundary.startPos + 1 < wordBoundary.endPos &&
            otm::MyanmarBreak::isMyanmar(aText[wordBoundary.endPos-1]))
     {
         wordBoundary.endPos--;
@@ -662,7 +662,8 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::p
             --i;
         }
         wordBoundary.startPos = i;
-        return wordBoundary;
+        if (wordBoundary.endPos != wordBoundary.startPos)
+            return wordBoundary;
     }
     return m_xBreakIteratorDelegate->previousWord(aText, nStartPos, aLocale, nWordType);
 }
@@ -730,7 +731,7 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::g
     }
     wordBoundary = m_xBreakIteratorDelegate->getWordBoundary(aText, nPos, aLocale, nWordType, bPreferForward);
     // check that the end of the word isn't Myanmar, if it is trim back
-    while (wordBoundary.startPos < wordBoundary.endPos &&
+    while (wordBoundary.startPos + 1 < wordBoundary.endPos &&
         otm::MyanmarBreak::isMyanmar(aText[wordBoundary.endPos-1]))
     {
         wordBoundary.endPos--;
