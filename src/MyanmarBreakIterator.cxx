@@ -430,6 +430,17 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::n
                     } while (i < aText.getLength() && isPunctuation(aText, i));
                     wordBoundary.startPos = i;
                 }
+                else // skip to end of English or other foreign word
+                {
+                    do
+                    {
+                        ++i;
+                    } while (i < aText.getLength() &&
+                    (nWordType == css::i18n::WordType::WORD_COUNT || !isPunctuation(aText, i)) &&
+                    !isWhiteSpace(aText, i) && !otm::MyanmarBreak::isMyanmar(aText[i]));
+
+                    wordBoundary.startPos = i;
+                }
             }
         }
         i = wordBoundary.startPos;
@@ -510,6 +521,14 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::n
         }
     }
     wordBoundary = m_xBreakIteratorDelegate->nextWord(aText, nStartPos, aLocale, nWordType);
+    // The start of the word is not Myanmar, but if the end is then back track
+    // since Myanmar typists don't always put a space after an English word
+    // joined with a Myanmar particle.
+    while (wordBoundary.startPos < wordBoundary.endPos &&
+           otm::MyanmarBreak::isMyanmar(aText[wordBoundary.endPos-1]))
+    {
+        wordBoundary.endPos--;
+    }
 #ifdef MMBI_DEBUG
     fprintf(stderr, "default nextWord %d -> %d-%d type %d\n", nStartPos,
                 wordBoundary.startPos, wordBoundary.endPos,
@@ -631,13 +650,27 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::p
 #endif
         return wordBoundary;
     }
+    // current word is Myanmar, but there is no whitespace to separate with
+    // previous word
+    else if (i > 0 && otm::MyanmarBreak::isMyanmar(aText[i])
+        && !isWhiteSpace(aText, i-1))
+    {
+        while (i > 0 && !otm::MyanmarBreak::isMyanmar(aText[i-1]) &&
+            (nWordType == css::i18n::WordType::WORD_COUNT || !isPunctuation(aText, i)) &&
+            !isWhiteSpace(aText, i))
+        {
+            --i;
+        }
+        wordBoundary.startPos = i;
+        return wordBoundary;
+    }
     return m_xBreakIteratorDelegate->previousWord(aText, nStartPos, aLocale, nWordType);
 }
 
 css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::getWordBoundary(const ::rtl::OUString & aText, ::sal_Int32 nPos, const css::lang::Locale & aLocale, ::sal_Int16 nWordType, ::sal_Bool bPreferForward) throw (css::uno::RuntimeException)
 {
     css::i18n::Boundary wordBoundary;
-    if (nPos >= 0 && nPos < aText.getLength())
+    if (nPos < aText.getLength())
     {
         int32_t mmStart = nPos;
         if (mmStart < 0) mmStart = 0;
@@ -695,7 +728,14 @@ css::i18n::Boundary SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::g
             return wordBoundary;
         }
     }
-    return m_xBreakIteratorDelegate->getWordBoundary(aText, nPos, aLocale, nWordType, bPreferForward);
+    wordBoundary = m_xBreakIteratorDelegate->getWordBoundary(aText, nPos, aLocale, nWordType, bPreferForward);
+    // check that the end of the word isn't Myanmar, if it is trim back
+    while (wordBoundary.startPos < wordBoundary.endPos &&
+        otm::MyanmarBreak::isMyanmar(aText[wordBoundary.endPos-1]))
+    {
+        wordBoundary.endPos--;
+    }
+    return wordBoundary;
 }
 
 ::sal_Int16 SAL_CALL org::thanlwinsoft::ooo::my::MyanmarBreakIterator::getWordType(const ::rtl::OUString & aText, ::sal_Int32 nPos, const css::lang::Locale & aLocale) throw (css::uno::RuntimeException)

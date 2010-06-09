@@ -614,20 +614,21 @@ int main(int argc, char ** argv)
                                 css::i18n::WordType::WORD_COUNT, testCExtraBreaks,
                                 sizeof(testCExtraBreaks)/sizeof(testCExtraBreaks[0]));
 
-        ::rtl::OString testMixedLang("မြန်မာ English မြန်မာ (ကွင်း)");
-        int32_t testMixedLangBreaks1[][2] = {{0,6},{7,14},{15,21},{22,23},{23,28},{28,29}};
+        ::rtl::OString testMixedLang("မြန်မာ English မြန်မာစကား (ကွင်း)");
+        int32_t testMixedLangBreaks1[][2] = {{0,6},{7,14},{15,21},{21,25},{26,27},{27,32},{32,33}};
         status &= breakPointsCorrect(xMMBreak, testMixedLang,
                                 ARRAY_WITH_LEN(testMixedLangBreaks1),
                                 css::i18n::WordType::ANYWORD_IGNOREWHITESPACES);
         status &= breakPointsCorrect(xMMBreak, testMixedLang,
                                 ARRAY_WITH_LEN(testMixedLangBreaks1),
                                 css::i18n::WordType::DICTIONARY_WORD);
-        int32_t testMixedLangBreaks3[][2] = {{0,6},{6,7},{7,14},{14,15},{15,21},{21,22},{22,29}};
+        int32_t testMixedLangBreaks3[][2] =
+            {{0,6},{6,7},{7,14},{14,15},{15,21},{21,25},{25,26},{26,33}};
         status &= breakPointsCorrect(xMMBreak, testMixedLang,
                                 ARRAY_WITH_LEN(testMixedLangBreaks3),
                                 css::i18n::WordType::WORD_COUNT);
 
-        int32_t testMixedExtraBreaks [] = { -1 }; // hack since windows doesn't allow empty array
+        int32_t testMixedExtraBreaks [] = { 21 };
         status &= compareBreaks(xUnicodeBreak, xMMBreak, testMixedLang,
                                 css::i18n::WordType::ANYWORD_IGNOREWHITESPACES,
                                 ARRAY_WITH_LEN(testMixedExtraBreaks));
@@ -662,6 +663,20 @@ int main(int argc, char ** argv)
         status &= breakPointsCorrect(xMMBreak, testD,
                                 ARRAY_WITH_LEN(testDBreaks1),
                                 css::i18n::WordType::DICTIONARY_WORD);
+
+        ::rtl::OString testE("ဖက်စ်");
+        int32_t testEBreaks1[][2] = {{0,5}};
+        status &= breakPointsCorrect(xMMBreak, testE,
+                                ARRAY_WITH_LEN(testEBreaks1),
+                                css::i18n::WordType::DICTIONARY_WORD);
+
+        ::rtl::OString testF("CMYIမှ ရယူနိုင်ပါသည်၊ ");
+        int32_t testFBreaks1[][2] = {{0,4},{4,6},{7,8},{8,10},{10,15},{15,17},{17,20},{20,21}};
+        status &= breakPointsCorrect(xMMBreak, testF,
+                                ARRAY_WITH_LEN(testFBreaks1),
+                                css::i18n::WordType::DICTIONARY_WORD);
+
+
 
         if (!status)
             fprintf(stderr, "\n*** %s test failed! ***\n\n", argv[0]);
