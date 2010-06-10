@@ -25,6 +25,7 @@
 
 #include "sal/config.h"
 #include "rtl/string.hxx"
+#include "rtl/ustring.hxx"
 
 #include "com/sun/star/beans/XPropertySet.hpp"
 #include "com/sun/star/uno/XInterface.hpp"
@@ -38,6 +39,7 @@ void printPropertyNames(::com::sun::star::uno::Reference<
     ::com::sun::star::beans::XPropertySet > propSet);
 void printServiceNames(::com::sun::star::uno::Reference<
     ::com::sun::star::uno::XInterface> xInterface);
+::rtl::OString unicodeToHex(::rtl::OUString unicode);
 
 }}}
 

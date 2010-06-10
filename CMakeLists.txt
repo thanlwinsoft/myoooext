@@ -48,7 +48,7 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     endif (${SYSTEM_MACHINE} STREQUAL "i686")
     set(PATH_SEPARATOR ":")
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-	add_definitions(-DWNT=1 -DCPPU_ENV=msci /wd4290 /wd4800 /W4)
+	add_definitions(-DWNT=1 -DUNICODE -DCPPU_ENV=msci /wd4290 /wd4800 /W4)
     set(EXTENSION_PLATFORM windows_${CMAKE_SYSTEM_PROCESSOR})
     set(PATH_SEPARATOR ";")
 endif (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
@@ -90,12 +90,21 @@ find_program(UNOPKG unopkg PATHS ENV OFFICE_PROGRAM_PATH /usr/bin
     DOC "OpenOffice.org Extension Manager")
 find_program(ZIP zip)
 
+# check if unopkg supports the -s option
 file(STRINGS ${OO_SDK_VERSION} OO_VERSION_STRING REGEX "OOOBaseVersion=[0-9.]+")
+file(STRINGS ${OO_SDK_VERSION} OO_PRODUCT_MAJOR_STRING REGEX "ProductMajor=[0-9.]+")
+file(STRINGS ${OO_SDK_VERSION} OO_PRODUCT_MINOR_STRING REGEX "ProductMinor=[0-9.]+")
 string(REPLACE "OOOBaseVersion=" "" OO_VERSION ${OO_VERSION_STRING})
+string(REPLACE "ProductMajor=" "" OO_MAJOR_VERSION ${OO_PRODUCT_MAJOR_STRING})
+string(REPLACE "ProductMinor=" "" OO_MINOR_VERSION ${OO_PRODUCT_MINOR_STRING})
 if (${OO_VERSION} GREATER 3.2)
     set(UNOPKG_OPTIONS -s)
-else (${OO_VERSION} GREATER 3.2)
-    set(UNOPKG_OPTIONS "")
+else (${OO_VERSION} GREATER 3.2) # not sure about the exact minor version to use
+	if ((${OO_MAJOR_VERSION} EQUAL 320) AND (${OO_MINOR_VERSION} GREATER 16))
+		set(UNOPKG_OPTIONS -s)
+	else ((${OO_MAJOR_VERSION} EQUAL 320) AND (${OO_MINOR_VERSION} GREATER 16))
+		set(UNOPKG_OPTIONS "")
+	endif ((${OO_MAJOR_VERSION} EQUAL 320) AND (${OO_MINOR_VERSION} GREATER 16))
 endif (${OO_VERSION} GREATER 3.2)
 
 include_directories ("${OO_SDK_INCLUDE}")
@@ -120,11 +129,18 @@ set_source_files_properties(src/MyanmarBreakIterator.cxx OBJECT_DEPENDS
 add_executable(mybreaktest src/test_MyanmarBreak.cpp src/MyanmarBreak.cpp)
 add_test(NAME test_mybreak COMMAND "$<TARGET_FILE:mybreaktest>")
 
-add_executable(mybreakitertest src/test_MyanmarBreakIterator.cxx)
+add_executable(mybreakitertest src/test_MyanmarBreakIterator.cxx src/oooextDiagnostic.cxx)
 add_test(NAME test_mybreakiter COMMAND "$<TARGET_FILE:mybreakitertest>")
 
-set_tests_properties(test_mybreak test_mybreakiter PROPERTIES 
-  ENVIRONMENT PATH=${OO_SDK_URE_BIN}${PATH_SEPARATOR}$ENV{PATH})
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+	set_tests_properties(test_mybreak test_mybreakiter PROPERTIES 
+	  ENVIRONMENT PATH=${OO_SDK_URE_BIN}${PATH_SEPARATOR}$ENV{PATH})
+elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+	file(TO_CMAKE_PATH "${OO_SDK_URE_BIN}" TEST_PATH)
+	set_tests_properties(test_mybreak test_mybreakiter PROPERTIES 
+		ENVIRONMENT PATH=${TEST_PATH})
+endif (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+
 set_tests_properties(test_mybreak PROPERTIES
 	LABELS "Myanmar Syllable Break Positions")
 set_tests_properties(test_mybreakiter PROPERTIES

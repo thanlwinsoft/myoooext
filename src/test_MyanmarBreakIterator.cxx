@@ -43,9 +43,11 @@
 #include "com/sun/star/uno/Reference.hxx"
 #include "com/sun/star/uno/XComponentContext.hpp"
 
+#include "oooextDiagnostic.hxx"
 #include "MyanmarBreakIterator.hxx"
 
 namespace css = ::com::sun::star;
+namespace oto = ::org::thanlwinsoft::ooo;
 #ifdef _MSC_VER
 typedef long int32_t;
 #endif
@@ -68,9 +70,10 @@ bool showNextBreaks(css::uno::Reference<css::i18n::XBreakIterator> & xBreak,
         ::rtl::OUString word(utf16text.getStr() + b.startPos, b.endPos - b.startPos);
         ::rtl::OString utf8Word;
         word.convertToString(&utf8Word, RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
-        fprintf(stderr, "%s::nextWord %d-%d '%s' type %d\n",
+        ::rtl::OString hexWord = oto::unicodeToHex(word);
+        fprintf(stderr, "%s::nextWord %d-%d '%s' (%s) type %d\n",
                 breakIteratorUtf8Name.getStr(), b.startPos,
-                b.endPos, utf8Word.getStr(), nWordType);
+                b.endPos, utf8Word.getStr(), hexWord.getStr(), nWordType);
         b = xBreak->nextWord(utf16text, b.endPos-1, locale, nWordType);
     }
 
@@ -93,9 +96,10 @@ bool showPreviousBreaks(css::uno::Reference<css::i18n::XBreakIterator> & xBreak,
         ::rtl::OUString word(utf16text.getStr() + b.startPos, b.endPos - b.startPos);
         ::rtl::OString utf8Word;
         word.convertToString(&utf8Word, RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
-        fprintf(stderr, "%s::prevWord %d-%d '%s' type %d\n",
+        ::rtl::OString hexWord = oto::unicodeToHex(word);
+        fprintf(stderr, "%s::prevWord %d-%d '%s' (%s) type %d\n",
                 breakIteratorUtf8Name.getStr(), b.startPos,
-                b.endPos, utf8Word.getStr(), nWordType);
+                b.endPos, utf8Word.getStr(), hexWord.getStr(), nWordType);
         b = xBreak->previousWord(utf16text, b.startPos, locale, nWordType);
     }
 
@@ -240,11 +244,19 @@ bool breakPointsCorrect(css::uno::Reference<css::i18n::XBreakIterator> & xBreak,
                                          expectedBreaks[i][1] - expectedBreaks[i][0]);
             ::rtl::OString expectedUtf8Word;
             expectedWord.convertToString(&expectedUtf8Word, RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
-
+#ifdef WIN32
+            ::rtl::OString wordHex = oto::unicodeToHex(word);
+            ::rtl::OString expectedHex = oto::unicodeToHex(expectedWord);
+            fprintf(stderr, "next breakPoint unexpected '%s' %d-%d expected '%s' %d-%d type %d\n",
+                wordHex.getStr(), b.startPos, b.endPos,
+                expectedHex.getStr(), expectedBreaks[i][0],
+                expectedBreaks[i][1], nWordType);
+#else
             fprintf(stderr, "next breakPoint unexpected '%s' %d-%d expected '%s' %d-%d type %d\n",
                     utf8Word.getStr(), b.startPos, b.endPos,
                     expectedUtf8Word.getStr(), expectedBreaks[i][0],
                     expectedBreaks[i][1], nWordType);
+#endif
             valid = false;
             return false;
         }
@@ -676,6 +688,11 @@ int main(int argc, char ** argv)
                                 ARRAY_WITH_LEN(testFBreaks1),
                                 css::i18n::WordType::DICTIONARY_WORD);
 
+        ::rtl::OString testG("ရေးအရ ၊ ညှင်းပန်း");
+        int32_t testGBreaks1[][2] = {{0,3},{3,5},{6,7},{8,17}};
+        status &= breakPointsCorrect(xMMBreak, testG,
+                                ARRAY_WITH_LEN(testGBreaks1),
+                                css::i18n::WordType::DICTIONARY_WORD);
 
 
         if (!status)

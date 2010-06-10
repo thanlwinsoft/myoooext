@@ -27,6 +27,8 @@
 #include "oooextDiagnostic.hxx"
 
 #include "uno/lbnames.h"
+#include "rtl/strbuf.hxx"
+
 #include "cppuhelper/implementationentry.hxx"
 #include "com/sun/star/deployment/XPackageInformationProvider.hpp"
 #include "com/sun/star/deployment/PackageInformationProvider.hpp"
@@ -38,6 +40,22 @@
 
 namespace css = ::com::sun::star;
 namespace oto = ::org::thanlwinsoft::ooo;
+
+::rtl::OString oto::unicodeToHex(::rtl::OUString unicode)
+{
+    ::rtl::OStringBuffer buffer(unicode.getLength() * 6);
+    for (int i = 0; i < unicode.getLength(); i++)
+    {
+        if (unicode[i] > 32 && unicode[i] < 128)
+            buffer.append(static_cast<char>(unicode[i]));
+        else
+        {
+            buffer.append("\\u");
+            buffer.append(static_cast<sal_Int32>(unicode[i]), 16);
+        }
+    }
+    return buffer.makeStringAndClear();
+}
 
 void oto::printStringSequence(::com::sun::star::uno::Sequence< ::rtl::OUString> stringSeq)
 {
