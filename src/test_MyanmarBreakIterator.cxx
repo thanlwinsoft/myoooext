@@ -694,6 +694,26 @@ int main(int argc, char ** argv)
                                 ARRAY_WITH_LEN(testGBreaks1),
                                 css::i18n::WordType::DICTIONARY_WORD);
 
+        // check line break
+        ::rtl::OString testLButf8("လိုင်က စကားလုံးထယ်မှာခွဲမလား။");
+        ::rtl::OUString testLB = ::rtl::OStringToOUString (testLButf8, RTL_TEXTENCODING_UTF8, OSTRING_TO_OUSTRING_CVTFLAGS);
+        css::i18n::LineBreakHyphenationOptions hyphOptions;
+        css::i18n::LineBreakUserOptions userOptions;
+        // check doesn't break mid-multi syllable word
+        css::i18n::LineBreakResults lbr = xMMBreak->getLineBreak(testLB, 8, locale, 0, hyphOptions, userOptions);
+        sal_Int32 expected = 7;
+        if (lbr.breakIndex != expected)
+        {
+            fprintf(stderr, "line break at %d, but expected %d\n", lbr.breakIndex, expected);
+            status = false;
+        }
+        lbr = xMMBreak->getLineBreak(testLB, 26, locale, 0, hyphOptions, userOptions);
+        expected = 25;
+        if (lbr.breakIndex != expected)
+        {
+            fprintf(stderr, "line break at %d, but expected %d\n", lbr.breakIndex, expected);
+            status = false;
+        }
 
         if (!status)
             fprintf(stderr, "\n*** %s test failed! ***\n\n", argv[0]);
