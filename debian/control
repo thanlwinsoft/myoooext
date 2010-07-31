@@ -14,7 +14,7 @@ Description: Myanmar line breaker and spell checker
  spellcheck dictionary to identify Myanmar words within a paragraph of text
  even if there are no spaces between the words. This information is then
  use to line break without needing a space and for spell-checking.
- 
+ .
  The word list is derived from Dr Judson's Myanmar-Engish dictionary, which
  was last revised in 1918, so some updates have been made to spellings. There
  will also be new words which have entered the Myanmar language since then.

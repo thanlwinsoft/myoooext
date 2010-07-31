@@ -53,6 +53,7 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(PATH_SEPARATOR ";")
 endif (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 
+set(OOO_VERSION 3.2) # used for basis directory
 
 # OO_SDK_URE_HOME is setup using the setsdkenv_* scripts
 find_path(OO_SDK_IDL com/sun/star/udk-modules.idl
