@@ -20,7 +20,7 @@ set -e
 
 case "$1" in
     configure)
-        unopkg add --shared /usr/share/openoffice.org-dict-my/*.oxt
+        unopkg add --shared /usr/share/openoffice.org3-dict-my/*.oxt
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

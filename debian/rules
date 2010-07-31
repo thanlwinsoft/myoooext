@@ -8,6 +8,9 @@
 
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
+# disable tests since they require the unopkg to have been installed
+# and spell checking to have been initialized
+export DEB_BUILD_OPTIONS=nocheck
 
 %:
 	dh --with quilt  $@ --builddirectory=build
