@@ -38,7 +38,7 @@ include_directories("${PROJECT_BINARY_DIR}")
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     add_definitions(-DUNX=1 -DLINUX=1 -DCPPU_ENV=gcc3 -Wall 
         -Wno-unknown-pragmas -Wparentheses -Wextra -Wendif-labels -Wshadow
-        -Wno-ctor-dtor-privacy -Wno-non-virtual-dtor -Werror)
+        -Wno-ctor-dtor-privacy -Wno-non-virtual-dtor)
     execute_process(COMMAND uname -m
         OUTPUT_VARIABLE SYSTEM_MACHINE OUTPUT_STRIP_TRAILING_WHITESPACE)
     if (${SYSTEM_MACHINE} STREQUAL "i686")
