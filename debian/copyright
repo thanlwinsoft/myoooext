@@ -1,0 +1,44 @@
+This work was packaged for Debian by:
+
+    Keith Stribley <devel@thanlwinsoft.org> on Sat, 31 Jul 2010 17:37:02 +0630
+
+It was downloaded from http://www.thanlwinsoft.org/cgi-bin/hgwebdir.cgi/openoffice.org-my
+
+Upstream Author(s):
+
+    Keith Stribley <devel@thanlwinsoft.org>
+
+Copyright:
+
+    Copyright (C) 2010 Keith Stribley
+
+License:
+
+    This package is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 3 of the License, or (at your option) any later version.
+
+    This package is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this package; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+
+On Debian systems, the complete text of the GNU Lesser General
+Public License can be found in `/usr/share/common-licenses/LGPL-3'.
+
+The Debian packaging is:
+
+    Copyright (C) 2010 Keith Stribley <devel@thanlwinsoft.org>
+
+and is licensed under the LGPL version 3, 
+see `/usr/share/common-licenses/LGPL-3'.
+
+The word list is derived from Dr Judson's Myanmar-Engish dictionary, which
+was last revised in 1918. Some updates have been made to spellings and new
+words added.
+

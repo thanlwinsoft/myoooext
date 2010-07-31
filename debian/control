@@ -1,0 +1,23 @@
+Source: openoffice.org3-dict-my
+Section: unknown
+Priority: extra
+Maintainer: Keith Stribley <devel@thanlwinsoft.org>
+Build-Depends: quilt (>= 0.46-7~), debhelper (>= 7), cmake, openjdk-6-jdk |java6-sdk
+Standards-Version: 3.8.4
+Homepage: http://www.thanlwinsoft.org/
+
+Package: openoffice.org3-dict-my
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Myanmar line breaker and spell checker
+ This extension uses a combination of a Myanmar Syllable algorithm and a
+ spellcheck dictionary to identify Myanmar words within a paragraph of text
+ even if there are no spaces between the words. This information is then
+ use to line break without needing a space and for spell-checking.
+ 
+ The word list is derived from Dr Judson's Myanmar-Engish dictionary, which
+ was last revised in 1918, so some updates have been made to spellings. There
+ will also be new words which have entered the Myanmar language since then.
+ If you find common Myanmar words, which are being wrongly identified by this
+ extension please report the issue at http://www.thanlwinsoft.org/
+

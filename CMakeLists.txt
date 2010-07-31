@@ -16,7 +16,7 @@
 # (a copy is included in the LICENSE file that accompanied this code).
 #
 
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6.0 FATAL_ERROR)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0 FATAL_ERROR)
 project (openoffice.org-my)
 enable_language(CXX C)
 
