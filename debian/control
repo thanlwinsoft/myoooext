@@ -1,5 +1,5 @@
 Source: openoffice.org3-dict-my
-Section: unknown
+Section: editors
 Priority: extra
 Maintainer: Keith Stribley <devel@thanlwinsoft.org>
 Build-Depends: quilt (>= 0.46-7~), debhelper (>= 7), cmake, openjdk-6-jdk |java6-sdk
